@@ -86,8 +86,8 @@ def play(args):  # dwaq
         )
         print("Exported policy as jit script to: ", path)
         print("policy ", policy)
-        export_policy_as_jit(ppo_runner.alg.actor_critic,path)
-        # export_lstm_model(ppo_runner.alg.actor_critic,path,48,0)
+        # export_policy_as_jit(ppo_runner.alg.actor_critic,path)
+        export_lstm_model(ppo_runner.alg.actor_critic,path,52,0)
 
     logger = Logger(env.dt)
     robot_index = 0  # which robot is used for logging

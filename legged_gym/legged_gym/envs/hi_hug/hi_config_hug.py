@@ -287,13 +287,13 @@ class HiHugCfg(LeggedRobotCfg):
 class HiHugCfgPPO(LeggedRobotCfgPPO):
     class policy:
         init_noise_std = 1.0
-        actor_hidden_dims = [512, 256, 128]
-        critic_hidden_dims = [512, 256, 128]
+        # actor_hidden_dims = [512, 256, 128]
+        # critic_hidden_dims = [512, 256, 128]
 
-        # actor_hidden_dims = [64]
-        # critic_hidden_dims = [64]
-        # rnn_hidden_size = 64
-        # rnn_num_layers = 2
+        actor_hidden_dims = [64]
+        critic_hidden_dims = [64]
+        rnn_hidden_size = 64
+        rnn_num_layers = 2
 
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01
@@ -301,8 +301,8 @@ class HiHugCfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = ""
 
-        # policy_class_name = "ActorCriticLSTM"
-        policy_class_name = 'ActorCritic'
+        policy_class_name = "ActorCriticLSTM"
+        # policy_class_name = 'ActorCritic'
         # policy_class_name = 'ActorCriticRecurrent'
 
         experiment_name = "hi_hug_" + policy_class_name
