@@ -52,7 +52,7 @@ import queue
 import time
 from multiprocessing import Process, Value
 data_queue = queue.Queue()
-plot_num = 6
+plot_num = 7
 def plot_data(data_queue):
     print("plot_data")
     plt.ion()  # 开启交互模式
@@ -156,13 +156,15 @@ def play(args):  # dwaq
         # print(env.l_t_2[:,0].size())
         # print(env.l_t_2.size())
         # print(env.clock_1.size())
+        aa = env.C_fun(env.phy_1,.05)
         merged_tensor = torch.cat([
             env.clock_1,
             env.clock_2,
             env.phy_1,
             env.phy_2,
             env.l_t_1,
-            env.l_t_2], dim=1)[0,:]
+            env.l_t_2,
+            aa], dim=1)[0,:]
         # print(merged_tensor.size()) # torch.Size([8])
         # merged_tensor = torch.cat([standing_command_mask, contact, contact_filt,feet_air_time,air_time_reward, _rew], dim=1)[1,:]
         data_queue.put(merged_tensor)  

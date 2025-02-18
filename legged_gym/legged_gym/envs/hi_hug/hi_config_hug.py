@@ -253,36 +253,54 @@ class HiHugCfg(LeggedRobotCfg):
         plus = 10
 
         class scales:
-            # ===base velocity=========
-            tracking_lin_vel = 1.5
-            tracking_ang_vel = 1.5
-            base_z_vel = 0.1
-            low_speed = 0.2
-            # ===base pose=============
-            roll_pitch_orient = 4   
-            base_height = 0.1
-            # ===base acc==============
-            base_acc = 0.1
-            # ===action smooth=========
-            action_smoothness = -2e-3 # -2e-2
-            torques = -1e-7 # -1e-6
-            dof_vel = -5e-5 # -5e-4
-            dof_acc = -1e-8 # -1e-7
-            # ===feet motion===========
-            feet_contact = 5
-            feet_contact_forces = -0.02
-            feet_airtime = 1.5
-            feet_swing_height =1
-            foot_slip = -2
-            boundary = -10
-            # ===pos===================
-            joint_pos = 1.0
-            feet_distance = 0.16
-            knee_distance = 0.16 
-            feet_orient = 0.9
-            feet_position = 0.9
-
             termination = 1.0
+            
+            lin_vel_track = 2
+            ang_vel_track = 2
+            
+            body_height_track = -40
+            foot_swing_track = -30
+            contact_swing_track = -2
+            
+            rp_ang_vel = -0.5
+            vertical_body_movement = -0.1
+            feet_slip = -0.2
+            action_rate = -0.01
+            action_smoothness = -0.01
+            joint_torque = -5e-6
+            joint_acc = -2.5e-7
+            hip_joint_deviation = -2
+            feet_symmetry = -5
+            
+            # # ===base velocity=========
+            # tracking_lin_vel = 1.5
+            # tracking_ang_vel = 1.5
+            # base_z_vel = 0.1
+            # low_speed = 0.2
+            # # ===base pose=============
+            # roll_pitch_orient = 4   
+            # base_height = 0.1
+            # # ===base acc==============
+            # base_acc = 0.1
+            # # ===action smooth=========
+            # action_smoothness = -2e-3 # -2e-2
+            # torques = -1e-7 # -1e-6
+            # dof_vel = -5e-5 # -5e-4
+            # dof_acc = -1e-8 # -1e-7
+            # # ===feet motion===========
+            # feet_contact = 5
+            # feet_contact_forces = -0.02
+            # feet_airtime = 1.5
+            # feet_swing_height =1
+            # foot_slip = -2
+            # boundary = -10
+            # # ===pos===================
+            # joint_pos = 1.0
+            # feet_distance = 0.16
+            # knee_distance = 0.16 
+            # feet_orient = 0.9
+            # feet_position = 0.9
+
             
 class HiHugCfgPPO(LeggedRobotCfgPPO):
     class policy:
