@@ -427,7 +427,7 @@ if __name__ == "__main__":
         "--logdir",
         type=str,
         required=False,
-        default=f"{LEGGED_GYM_ROOT_DIR}/logs/hi_hug_ActorCritic/exported/policies",
+        default=f"{LEGGED_GYM_ROOT_DIR}/logs/hi_hug_ActorCriticLSTM/exported/policies",
         help="Run to load from.",
     )
     parser.add_argument("--terrain", action="store_true", help="terrain or plane")
@@ -469,7 +469,7 @@ if __name__ == "__main__":
             print("kds: ", kds)
             tau_limit = 40.0 * np.ones(12, dtype=np.double)
 
-    a = args.logdir + "/policy_1.pt"
+    a = args.logdir + "/lstm_1.pt"
     policy = torch.jit.load(a)
     # run_mujoco(policy, Sim2simCfg())
 
