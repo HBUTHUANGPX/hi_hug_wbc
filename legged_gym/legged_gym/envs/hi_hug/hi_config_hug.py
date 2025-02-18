@@ -223,8 +223,8 @@ class HiHugCfg(LeggedRobotCfg):
             heading = [-3.14, 3.14]
             disturbance_range = [-320.0, 320.0]
             gait_frequency = [1.5,3.5]
-            swing_height = [0.1,0.35]
-            base_height = [-0.2,0]
+            swing_height = [0.07,0.15]
+            base_height = [-0.1,0]
 
     class rewards:
         soft_dof_pos_limit = 0.98
@@ -277,8 +277,8 @@ class HiHugCfg(LeggedRobotCfg):
             boundary = -10
             # ===pos===================
             joint_pos = 1.0
-            # feet_distance = 0.16
-            # knee_distance = 0.16 
+            feet_distance = 0.16
+            knee_distance = 0.16 
             feet_orient = 0.9
             feet_position = 0.9
 
