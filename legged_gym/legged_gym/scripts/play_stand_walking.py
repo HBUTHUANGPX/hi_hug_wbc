@@ -133,20 +133,13 @@ def play(args):  # dwaq
         # actions = policy(obs.detach(), obs_hist.detach())
         obs, _, _, obs_hist, rews, dones, infos = env.step(actions.detach())
         
-        standing_command_mask,contact,contact_filt,feet_air_time,air_time_reward,_rew = env._reward_feet_airtime(play = True)
-        standing_command_mask = standing_command_mask.unsqueeze(1)
-        _rew = _rew.unsqueeze(1)
         # air_time_reward = air_time_reward.unsqueeze(1)
         # print(merged_tensor.size()) # torch.Size([8])
-
-        env._reward_feet_position()
-        env._reward_boundary()
-        env._reward_feet_swing_height()
-        _rew_2,contact_2,has_true_in_row,has_single_contact,has_true_in_row_double= env._reward_feet_contact(play = True)
-        _rew_2 = _rew_2.unsqueeze(1)
-        has_true_in_row = has_true_in_row.unsqueeze(1)
-        has_single_contact = has_single_contact.unsqueeze(1)
-        has_true_in_row_double = has_true_in_row_double.unsqueeze(1)
+        # _rew_2,contact_2,has_true_in_row,has_single_contact,has_true_in_row_double= env._reward_feet_contact(play = True)
+        # _rew_2 = _rew_2.unsqueeze(1)
+        # has_true_in_row = has_true_in_row.unsqueeze(1)
+        # has_single_contact = has_single_contact.unsqueeze(1)
+        # has_true_in_row_double = has_true_in_row_double.unsqueeze(1)
         # print("========================")
         # print(_rew.size())
         # print(contact.size())
@@ -156,14 +149,19 @@ def play(args):  # dwaq
         # print(env.l_t_2[:,0].size())
         # print(env.l_t_2.size())
         # print(env.clock_1.size())
+        norm_force,exp_force,norm_vel,exp_vel=env._reward_contact_swing_track(play = True)
         aa = env.C_fun(env.phy_1,.05)
+        # print(env.clock_1.size())
+        # print(feet_height.size())
+        # print(CDF.size())
+        # print(err.size())
         merged_tensor = torch.cat([
             env.clock_1,
             env.clock_2,
-            env.phy_1,
-            env.phy_2,
-            env.l_t_1,
-            env.l_t_2,
+            norm_force,
+            exp_force,
+            norm_vel,
+            exp_vel,
             aa], dim=1)[0,:]
         # print(merged_tensor.size()) # torch.Size([8])
         # merged_tensor = torch.cat([standing_command_mask, contact, contact_filt,feet_air_time,air_time_reward, _rew], dim=1)[1,:]
