@@ -55,9 +55,8 @@ class OnPolicyRunner:
             datetime.now().strftime("%b%d_%H-%M-%S")
             + "_"
             + train_cfg["runner"]["experiment_name"]
-            + "_"
-            + train_cfg["runner"]["run_name"]
         )
+        self._project_name = train_cfg["runner"]["run_name"]
         self.device = device
         self.env = env
         if self.env.num_privileged_obs is not None:
@@ -101,7 +100,7 @@ class OnPolicyRunner:
             swanlab.init(
                 workspace="Huangpx",
                 # 设置项目名
-                project="Hug_WBC",
+                project=self._project_name,
                 # 设置超参数
                 config=self.all_cfg,
                 experiment_name=self._run_name,

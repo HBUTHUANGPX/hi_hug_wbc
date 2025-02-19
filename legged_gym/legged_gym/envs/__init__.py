@@ -53,3 +53,9 @@ from .hi_hug.hi_config_hug import HiHugCfg, HiHugCfgPPO
 task_registry.register(
     "hi_hug", HiHugEnv, HiHugCfg(), HiHugCfgPPO()
 )
+
+from.mini_pi_hug.mpi_env_hug import MpiHugEnv
+from .mini_pi_hug.mpi_config_hug import MpiHugCfg, MpiHugCfgPPO
+task_registry.register(
+    "Mpi_hug", MpiHugEnv, MpiHugCfg(), MpiHugCfgPPO()
+)

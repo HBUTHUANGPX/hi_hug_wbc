@@ -101,7 +101,10 @@ class pin_mj:
         
 
 if __name__ =="__main__":
-    a = pin_mj("/home/pi/HPX_Loco/DreamWaQ-Pi-Sim2sim/legged_gym/resources/robots/hi_12dof_250108_4/urdf/hi_12dof_250108_4_rl_3.urdf")
-    hh = a.get_foot_pos(np.array([0.37, 0.0, 0.0, -0.8, 0.43, 0.0, 
-                             0.0, 0.0, 0.0, 0.0, 0.0, 0.0], dtype=float))
+    base_path = "//home/sunteng/HPX_Loco/Hug_WBC/legged_gym/resources/robots"
+    # robot_patch = "/hi_12dof_250108_4/urdf/hi_12dof_250108_4_rl_3.urdf"
+    robot_patch = "/minipi_12dof_250110/urdf/minipi_12dof_250110_rl.urdf"
+    a = pin_mj(base_path+robot_patch)
+    hh = a.get_foot_pos(np.array([0]*(12), dtype=float))
     print(hh)
+    # conda install pinocchio -c conda-forge

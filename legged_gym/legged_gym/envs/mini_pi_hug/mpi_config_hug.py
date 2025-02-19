@@ -30,7 +30,7 @@
 
 from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
 
-class HiHugCfg(LeggedRobotCfg):
+class MpiHugCfg(LeggedRobotCfg):
     class env(LeggedRobotCfg.env):
         num_envs = 4096
         obs_with_base_lin_vel = False
@@ -50,7 +50,7 @@ class HiHugCfg(LeggedRobotCfg):
         episode_length_s = 17  # episode length in seconds
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.54]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.306]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             "r_hip_pitch_joint": 0.0,
             "r_hip_roll_joint": 0.0,
@@ -84,28 +84,20 @@ class HiHugCfg(LeggedRobotCfg):
         # PD Drive parameters:
         control_type = "P"
         stiffness = {
-            "hip_pitch_joint": 80.0,
+            "hip_pitch_joint": 40.0,
             "hip_roll_joint": 40.0,
-            "thigh_joint": 40.0,
-            "calf_joint": 80.0,
-            "ankle_pitch_joint": 50,
+            "thigh_joint": 20.0,
+            "calf_joint": 40.0,
+            "ankle_pitch_joint": 30,
             "ankle_roll_joint": 10,
         }
-        # stiffness = {
-        #     "hip_pitch_joint": 80.0,
-        #     "hip_roll_joint": 40.0,
-        #     "thigh_joint": 40.0,
-        #     "calf_joint": 80.0,
-        #     "ankle_pitch_joint": 80,
-        #     "ankle_roll_joint": 10,
-        # }
         damping = {
-            "hip_pitch_joint": 5,
-            "hip_roll_joint": 5,
-            "thigh_joint": 1,
-            "calf_joint": 5,
-            "ankle_pitch_joint": 0.8,
-            "ankle_roll_joint": 0.4,
+            "hip_pitch_joint": 2.4,
+            "hip_roll_joint": 0.8,
+            "thigh_joint": 0.4,
+            "calf_joint": 2.8,
+            "ankle_pitch_joint": 1.6,
+            "ankle_roll_joint": 0.3,
         }
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
@@ -113,10 +105,8 @@ class HiHugCfg(LeggedRobotCfg):
         decimation = 10
 
     class asset(LeggedRobotCfg.asset):
-        file = "{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_12dof_250108_4/urdf/hi_12dof_250108_4_rl_3.urdf"
-        # file = "{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_12dof_250108_4/urdf/hi_12dof_250108_4_rl_2.urdf"
-        # file = "{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_12dof_250108_4/urdf/hi_12dof_250108_4_rl.urdf"
-        name = "Hi"
+        file = "{LEGGED_GYM_ROOT_DIR}/resources/robots/minipi_12dof_250110/urdf/minipi_12dof_250110_rl.urdf"
+        name = "mini_Pi"
         foot_name = "ankle_roll"
         knee_name = "calf"
 
@@ -217,26 +207,26 @@ class HiHugCfg(LeggedRobotCfg):
         max_disturbance_range = [-440.0, 440.0]
 
         class ranges:
-            lin_vel_x = [-1.8, 1.8]  # min max [m/s]
+            lin_vel_x = [-0.8, 0.8]  # min max [m/s]
             lin_vel_y = [-0.5, 0.5]  # min max [m/s]
             ang_vel_yaw = [-0.9, 0.9]  # min max [rad/s]
             heading = [-3.14, 3.14]
             disturbance_range = [-320.0, 320.0]
             gait_frequency = [1.5,3.5]
-            swing_height = [0.07,0.15]
-            base_height = [-0.1,0]
+            swing_height = [0.03,0.08]
+            base_height = [-0.05,0]
 
     class rewards:
         soft_dof_pos_limit = 0.98
 
-        base_height_target = 0.54
+        base_height_target = 0.306
 
         min_dist_fe = 0.18
         max_dist_fe = 0.22
         min_dist_kn = 0.18
         max_dist_kn = 0.22
         # ref
-        target_feet_height = 0.07  # m  0.025
+        target_feet_height = 0.05  # m  0.025
         cycle_time = 0.66  # sec
         bias = 0.3
         y_bias = 0.3
@@ -246,10 +236,7 @@ class HiHugCfg(LeggedRobotCfg):
         only_positive_rewards = True
         # tracking reward = exp(error*sigma)
         tracking_sigma = 5
-        max_contact_force = 150  # forces above this value are penalized
-
-        # use_ankle_pitch= True
-
+        max_contact_force = 80  # forces above this value are penalized
         plus = 10
 
         class scales:
@@ -302,7 +289,7 @@ class HiHugCfg(LeggedRobotCfg):
             feet_position = 0.9
 
             
-class HiHugCfgPPO(LeggedRobotCfgPPO):
+class MpiHugCfgPPO(LeggedRobotCfgPPO):
     class policy:
         init_noise_std = 1.0
         # actor_hidden_dims = [512, 256, 128]
@@ -317,13 +304,13 @@ class HiHugCfgPPO(LeggedRobotCfgPPO):
         entropy_coef = 0.01
 
     class runner(LeggedRobotCfgPPO.runner):
-        run_name = "hi_Hug_WBC"
+        run_name = "mini_Pi_Hug_WBC"
 
-        policy_class_name = "ActorCriticLSTM"
+        policy_class_name = "ACriticLSTM"
         # policy_class_name = 'ActorCritic'
         # policy_class_name = 'ActorCriticRecurrent'
 
-        experiment_name = "hi_hug_" + policy_class_name
+        experiment_name = "mpi_hug_" + policy_class_name
         # load and resume
         # resume=True
         # load_run = 'Nov08_09-31-25_'# -1 = last run
