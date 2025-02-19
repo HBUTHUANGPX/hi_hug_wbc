@@ -94,7 +94,8 @@ def play(args):  # dwaq
     env_cfg.domain_rand.randomize_friction = False
     env_cfg.domain_rand.push_robots = False
     env_cfg.domain_rand.push_robots = True
-    env_cfg.asset.fix_base_link = False#True
+    # env_cfg.asset.fix_base_link = False#True
+    env_cfg.asset.fix_base_link = True
     env_cfg.init_state.pos = [0.0, 0.0, 0.503]
     env_cfg.sim.physx.num_threads = 12
     # prepare environment
@@ -125,47 +126,28 @@ def play(args):  # dwaq
     # 启动子线程进行绘图
     plot_thread = threading.Thread(target=plot_data, args=(data_queue,))
     plot_thread.daemon = True
-    plot_thread.start()
+    # plot_thread.start()
     
     for i in range(10 * int(env.max_episode_length)):
-        actions = policy(obs.detach())
+        actions = policy(obs.detach())*0
+        # actions = policy(obs.detach())
         # actions = policy(obs.detach())
         # actions = policy(obs.detach(), obs_hist.detach())
         obs, _, _, obs_hist, rews, dones, infos = env.step(actions.detach())
         
-        # air_time_reward = air_time_reward.unsqueeze(1)
-        # print(merged_tensor.size()) # torch.Size([8])
-        # _rew_2,contact_2,has_true_in_row,has_single_contact,has_true_in_row_double= env._reward_feet_contact(play = True)
-        # _rew_2 = _rew_2.unsqueeze(1)
-        # has_true_in_row = has_true_in_row.unsqueeze(1)
-        # has_single_contact = has_single_contact.unsqueeze(1)
-        # has_true_in_row_double = has_true_in_row_double.unsqueeze(1)
-        # print("========================")
-        # print(_rew.size())
-        # print(contact.size())
-        # print(has_true_in_row.size())
-        # print(has_single_contact.size())
-        # merged_tensor = torch.cat([standing_command_mask, contact, contact_filt, feet_air_time, _rew,_rew_2,contact_2,has_true_in_row,has_single_contact,has_twice_contact], dim=1)[0,:]
-        # print(env.l_t_2[:,0].size())
-        # print(env.l_t_2.size())
-        # print(env.clock_1.size())
-        norm_force,exp_force,norm_vel,exp_vel=env._reward_contact_swing_track(play = True)
-        aa = env.C_fun(env.phy_1,.05)
-        # print(env.clock_1.size())
-        # print(feet_height.size())
-        # print(CDF.size())
-        # print(err.size())
-        merged_tensor = torch.cat([
-            env.clock_1,
-            env.clock_2,
-            norm_force,
-            exp_force,
-            norm_vel,
-            exp_vel,
-            aa], dim=1)[0,:]
-        # print(merged_tensor.size()) # torch.Size([8])
-        # merged_tensor = torch.cat([standing_command_mask, contact, contact_filt,feet_air_time,air_time_reward, _rew], dim=1)[1,:]
-        data_queue.put(merged_tensor)  
+        # env._reward_feet_distance()
+        env._reward_knee_distance()
+        # norm_force,exp_force,norm_vel,exp_vel=env._reward_contact_swing_track(play = True)
+        # aa = env.C_fun(env.phy_1,.05)
+        # merged_tensor = torch.cat([
+        #     env.clock_1,
+        #     env.clock_2,
+        #     norm_force,
+        #     exp_force,
+        #     norm_vel,
+        #     exp_vel,
+        #     aa], dim=1)[0,:]
+        # data_queue.put(merged_tensor)  
         
 if __name__ == "__main__":
     EXPORT_POLICY = True

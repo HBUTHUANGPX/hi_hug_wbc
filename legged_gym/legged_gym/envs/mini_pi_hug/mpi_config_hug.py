@@ -165,7 +165,7 @@ class MpiHugCfg(LeggedRobotCfg):
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = True
-        friction_range = [0.1, 0.45]
+        friction_range = [0.1, 1.25]
         # friction_range = [0.1, 0.45]
 
         randomize_base_mass = False
@@ -178,7 +178,7 @@ class MpiHugCfg(LeggedRobotCfg):
 
         push_robots = True
         push_interval_s = 3  # 每次推的间隔时间
-        max_push_vel_xy = 0.5
+        max_push_vel_xy = 0.2
         # max_push_ang_vel = 0.2
         dynamic_randomization = 0.02
 
@@ -207,14 +207,14 @@ class MpiHugCfg(LeggedRobotCfg):
         max_disturbance_range = [-440.0, 440.0]
 
         class ranges:
-            lin_vel_x = [-0.8, 0.8]  # min max [m/s]
-            lin_vel_y = [-0.5, 0.5]  # min max [m/s]
+            lin_vel_x = [-0.4, 0.4]  # min max [m/s]
+            lin_vel_y = [-0.2, 0.2]  # min max [m/s]
             ang_vel_yaw = [-0.9, 0.9]  # min max [rad/s]
             heading = [-3.14, 3.14]
             disturbance_range = [-320.0, 320.0]
-            gait_frequency = [1.5,3.5]
-            swing_height = [0.03,0.08]
-            base_height = [-0.05,0]
+            gait_frequency = [2.5,3.5]
+            swing_height = [0.05,0.051]
+            base_height = [-1e-5,0]
 
     class rewards:
         soft_dof_pos_limit = 0.98
@@ -223,8 +223,8 @@ class MpiHugCfg(LeggedRobotCfg):
 
         min_dist_fe = 0.18
         max_dist_fe = 0.22
-        min_dist_kn = 0.18
-        max_dist_kn = 0.22
+        min_dist_kn = 0.213-0.02
+        max_dist_kn = 0.213+0.02
         # ref
         target_feet_height = 0.05  # m  0.025
         cycle_time = 0.66  # sec
@@ -270,15 +270,15 @@ class MpiHugCfg(LeggedRobotCfg):
             # ===base acc==============
             base_acc = 0.1
             # ===action smooth=========
-            action_smoothness = -2e-3 # -2e-2
-            torques = -1e-7 # -1e-6
-            dof_vel = -5e-5 # -5e-4
-            dof_acc = -1e-8 # -1e-7
+            action_smoothness = -2e-2
+            torques = -1e-6
+            dof_vel = -5e-4
+            dof_acc = -1e-7
             # ===feet motion===========
             feet_contact = 5
             # feet_contact_forces = -0.02
             feet_airtime = 1.5
-            feet_swing_height =1
+            # feet_swing_height =1
             foot_slip = -2
             boundary = -10
             # ===pos===================
@@ -286,7 +286,6 @@ class MpiHugCfg(LeggedRobotCfg):
             feet_distance = 0.16
             knee_distance = 0.16 
             feet_orient = 0.9
-            feet_position = 0.9
 
             
 class MpiHugCfgPPO(LeggedRobotCfgPPO):
@@ -306,7 +305,7 @@ class MpiHugCfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = "mini_Pi_Hug_WBC"
 
-        policy_class_name = "ACriticLSTM"
+        policy_class_name = "ActorCriticLSTM"
         # policy_class_name = 'ActorCritic'
         # policy_class_name = 'ActorCriticRecurrent'
 

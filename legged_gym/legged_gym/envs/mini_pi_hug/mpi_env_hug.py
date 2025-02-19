@@ -1867,24 +1867,12 @@ class MpiHugEnv(LeggedRobot):
     # ===pos===================
     def _reward_joint_pos(self):
         diff = self.dof_pos - self.ref_dof_pos
-        _scale_l = [0.1, 2, 1, 0.2, 0.2, 2] * (2)
+        _scale_l = [0.8, 2, 1, 0.8, 0.8, 2] * (2)
         _scale = torch.tensor(
             _scale_l, dtype=torch.float, device=self.device, requires_grad=False
         )
         r = torch.exp(-6 * torch.norm(diff[:, :] * _scale, dim=1))
         return r
-
-    def _reward_default_joint_pos(self):
-        """
-        Calculates the reward for keeping joint positions close to default positions, with a focus
-        on penalizing deviation in yaw and roll directions. Excludes yaw and roll from the main penalty.
-        """
-        joint_diff = self.dof_pos - self.default_joint_pd_target
-        left_yaw_roll = joint_diff[:, 1:3]
-        right_yaw_roll = joint_diff[:, 7:9]
-        yaw_roll = torch.norm(left_yaw_roll, dim=1) + torch.norm(right_yaw_roll, dim=1)
-        yaw_roll = torch.clamp(yaw_roll - 0.1, 0, 50)
-        return torch.exp(-yaw_roll * 50) - 0.01 * torch.norm(joint_diff, dim=1)
 
     def _reward_feet_distance(self):
         """
@@ -1896,6 +1884,7 @@ class MpiHugEnv(LeggedRobot):
         max_df = self.cfg.rewards.max_dist_fe
         d_min = torch.clamp(foot_dist - fd, -0.5, 0.0)
         d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
+        # print(foot_dist[0])
         return (
             torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)
         ) / 2
@@ -1910,6 +1899,7 @@ class MpiHugEnv(LeggedRobot):
         max_df = self.cfg.rewards.max_dist_kn
         d_min = torch.clamp(foot_dist - fd, -0.5, 0.0)
         d_max = torch.clamp(foot_dist - max_df, 0, 0.5)
+        # print(foot_dist[0])
         return (
             torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)
         ) / 2
