@@ -648,7 +648,9 @@ class HiHugEnv(LeggedRobot):
         self.phy_2 = self.phy_1 + self.psi
         self.phy_1[self.phy_1 >= 1.0] = 0.0
         self.phy_2[self.phy_2 >= 1.0] -= 1.0
-
+        self.phy_1[standing_mask] = 0.25*torch.ones_like(self.phy_1[standing_mask])
+        self.phy_2[standing_mask] = 0.25*torch.ones_like(self.phy_2[standing_mask])
+        
         self.phy_1_bar = self.normalized_phase(self.phy_1, self.phi_stance)
         self.phy_2_bar = self.normalized_phase(self.phy_2, self.phi_stance)
 
@@ -1369,7 +1371,7 @@ class HiHugEnv(LeggedRobot):
                 # self.root_acc_base_with_g, # 3
                 self.f_t,  # 1
                 self.l_t,  # 1
-                self.h_t,  # 1
+                # self.h_t,  # 1
                 self.psi,  # 1
                 self.clock_1,  # 1
                 self.clock_2,  # 1
@@ -1405,7 +1407,7 @@ class HiHugEnv(LeggedRobot):
                 self.add_vel_norm,  # 3
                 self.f_t,  # 1
                 self.l_t,  # 1
-                self.h_t,  # 1
+                # self.h_t,  # 1
                 self.psi,  # 1
                 self.clock_1,  # 1
                 self.clock_2,  # 1

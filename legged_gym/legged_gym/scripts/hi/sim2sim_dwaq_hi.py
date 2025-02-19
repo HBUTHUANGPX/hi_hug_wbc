@@ -234,20 +234,23 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: cfg):
             obs[0, 34 + add : 46 + add] = torch.tensor(action, dtype=torch.double)  # 12
             obs[0, 46 + add] = 0.2
             obs[0, 47 + add] = 0.2
-            obs[0, 48 + add] = 0.
-            obs[0, 49 + add] = psi
+            # obs[0, 48 + add] = 0.
+            obs[0, 48 + add] = psi
             phy_1 += obs[0, 46 + add] * cfg.sim_config.dt
             if phy_1 >= 1.0:
                 phy_1 = 0.0
-            phy_2 = phy_1 + obs[0, 49 + add]
+            phy_2 = phy_1 + obs[0, 48 + add]
             if phy_2 >= 1.0:
                 phy_2 -= 1.0
-            obs[0, 50 + add] = math.sin(
+            if psi < 0.1:
+                phy_1 = 0.25
+                phy_2 = 0.25
+            obs[0, 49 + add] = math.sin(
                     2
                     * math.pi
                     * phy_1
                 )
-            obs[0, 51 + add] = math.sin(
+            obs[0, 50 + add] = math.sin(
                     2
                     * math.pi
                     * phy_2

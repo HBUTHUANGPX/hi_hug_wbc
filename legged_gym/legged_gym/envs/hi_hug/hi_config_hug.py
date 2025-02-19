@@ -38,10 +38,10 @@ class HiHugCfg(LeggedRobotCfg):
         if obs_with_base_lin_vel:
             num_observations = 0
         else:
-            num_observations = 52
+            num_observations = 51
         num_obs_hist = 0
         num_actor_obs = num_observations
-        num_privileged_obs = 300
+        num_privileged_obs = 299
         num_critic_obs = num_privileged_obs
 
         num_actions = 12
@@ -175,7 +175,7 @@ class HiHugCfg(LeggedRobotCfg):
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = True
-        friction_range = [0.1, 0.45]
+        friction_range = [0.1, 1.25]
         # friction_range = [0.1, 0.45]
 
         randomize_base_mass = False
@@ -188,7 +188,7 @@ class HiHugCfg(LeggedRobotCfg):
 
         push_robots = True
         push_interval_s = 3  # 每次推的间隔时间
-        max_push_vel_xy = 0.5
+        max_push_vel_xy = 0.1
         # max_push_ang_vel = 0.2
         dynamic_randomization = 0.02
 
@@ -210,7 +210,7 @@ class HiHugCfg(LeggedRobotCfg):
     class commands(LeggedRobotCfg.commands):
         # Vers: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
         num_commands = 4
-        resampling_time = 5.0  # time before command are changed[s]
+        resampling_time = 2.0  # time before command are changed[s]
         heading_command = True  # if true: compute ang vel command from heading error
         curriculum = True
         max_curriculum_x = [-1.2, 1.2]
@@ -270,7 +270,7 @@ class HiHugCfg(LeggedRobotCfg):
             # joint_torque = -5e-6
             # joint_acc = -2.5e-7
             # hip_joint_deviation = -2
-            # feet_symmetry = -5
+            feet_symmetry = -1
             
             # ===base velocity=========
             tracking_lin_vel = 1.5
@@ -283,10 +283,10 @@ class HiHugCfg(LeggedRobotCfg):
             # ===base acc==============
             base_acc = 0.1
             # ===action smooth=========
-            action_smoothness = -2e-3 # -2e-2
-            torques = -1e-7 # -1e-6
-            dof_vel = -5e-5 # -5e-4
-            dof_acc = -1e-8 # -1e-7
+            action_smoothness = -2e-2
+            torques = -1e-6
+            dof_vel = -5e-4
+            dof_acc = -1e-7
             # ===feet motion===========
             feet_contact = 5
             # feet_contact_forces = -0.02
@@ -299,7 +299,7 @@ class HiHugCfg(LeggedRobotCfg):
             feet_distance = 0.16
             knee_distance = 0.16 
             feet_orient = 0.9
-            feet_position = 0.9
+            # feet_position = 0.9
 
             
 class HiHugCfgPPO(LeggedRobotCfgPPO):
