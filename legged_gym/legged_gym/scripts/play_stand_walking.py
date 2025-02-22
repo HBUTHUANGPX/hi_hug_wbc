@@ -52,7 +52,7 @@ import queue
 import time
 from multiprocessing import Process, Value
 data_queue = queue.Queue()
-plot_num = 7
+plot_num = 6
 def plot_data(data_queue):
     print("plot_data")
     plt.ion()  # 开启交互模式
@@ -96,7 +96,7 @@ def play(args):  # dwaq
     env_cfg.domain_rand.push_robots = True
     # env_cfg.asset.fix_base_link = False#True
     env_cfg.asset.fix_base_link = True
-    env_cfg.init_state.pos = [0.0, 0.0, 0.503]
+    env_cfg.init_state.pos = [0.0, 0.0, 0.648]
     env_cfg.sim.physx.num_threads = 12
     # prepare environment
     env : rb_env
@@ -126,7 +126,7 @@ def play(args):  # dwaq
     # 启动子线程进行绘图
     plot_thread = threading.Thread(target=plot_data, args=(data_queue,))
     plot_thread.daemon = True
-    # plot_thread.start()
+    plot_thread.start()
     
     for i in range(10 * int(env.max_episode_length)):
         actions = policy(obs.detach())*0
@@ -136,18 +136,23 @@ def play(args):  # dwaq
         obs, _, _, obs_hist, rews, dones, infos = env.step(actions.detach())
         
         # env._reward_feet_distance()
-        env._reward_knee_distance()
+        fh,lt,err,cdf,nmerr,rew=env._reward_foot_swing_track(play=True)
         # norm_force,exp_force,norm_vel,exp_vel=env._reward_contact_swing_track(play = True)
         # aa = env.C_fun(env.phy_1,.05)
         # merged_tensor = torch.cat([
         #     env.clock_1,
         #     env.clock_2,
-        #     norm_force,
-        #     exp_force,
-        #     norm_vel,
-        #     exp_vel,
-        #     aa], dim=1)[0,:]
-        # data_queue.put(merged_tensor)  
+        #     env.phy_1,
+        #     env.phy_1_bar], dim=1)[0,:]
+        print(fh[0,0])
+        merged_tensor = torch.cat([
+            fh,
+            lt,
+            err,
+            cdf.unsqueeze(1),
+            nmerr.unsqueeze(1),
+            rew.unsqueeze(1)], dim=1)[0,:]
+        data_queue.put(merged_tensor)  
         
 if __name__ == "__main__":
     EXPORT_POLICY = True

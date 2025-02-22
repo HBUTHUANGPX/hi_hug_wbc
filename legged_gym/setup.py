@@ -14,5 +14,7 @@ setup(
                       'matplotlib',
                       'tensorboard',
                       'wandb',
-                      'swanlab']
+                      'swanlab',
+                      'mujoco==2.3.6',
+                      'mujoco-python-viewer']
 )
