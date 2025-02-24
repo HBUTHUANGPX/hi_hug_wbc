@@ -38,16 +38,16 @@ class HiclHugCfg(LeggedRobotCfg):
         if obs_with_base_lin_vel:
             num_observations = 0
         else:
-            num_observations = 51
+            num_observations = 53
         num_obs_hist = 0
         num_actor_obs = num_observations
-        num_privileged_obs = 299
+        num_privileged_obs = 301
         num_critic_obs = num_privileged_obs
 
         num_actions = 12
         env_spacing = 3.0  # not used with heightfields/trimeshes
         send_timeouts = True  # send time out information to the algorithm
-        episode_length_s = 5  # episode length in seconds
+        episode_length_s = 11  # episode length in seconds
 
     class init_state(LeggedRobotCfg.init_state):
         pos = [0.0, 0.0, 0.648]  # x,y,z [m]
@@ -84,21 +84,38 @@ class HiclHugCfg(LeggedRobotCfg):
         # PD Drive parameters:
         control_type = "P"
         stiffness = {
-            "hip_pitch_joint": 80.0,
-            "hip_roll_joint": 40.0,
-            "thigh_joint": 40.0,
-            "calf_joint": 80.0,
+            "hip_pitch_joint": 40.0,
+            "hip_roll_joint": 20.0,
+            "thigh_joint": 20.0,
+            "calf_joint": 40.0,
+            "ankle_pitch_joint": 20,
+            "ankle_roll_joint": 20,
+        }
+        damping = {
+            "hip_pitch_joint": 0.5,
+            "hip_roll_joint": 0.8,
+            "thigh_joint": 0.8,
+            "calf_joint": 0.5,
+            "ankle_pitch_joint": 0.5,
+            "ankle_roll_joint": 0.5,
+        }
+        '''
+        stiffness = {
+            "hip_pitch_joint": 100.0,
+            "hip_roll_joint": 100.0,
+            "thigh_joint": 100.0,
+            "calf_joint": 150.0,
             "ankle_pitch_joint": 40,
             "ankle_roll_joint": 40,
         }
         damping = {
-            "hip_pitch_joint": 5,
-            "hip_roll_joint": 5,
-            "thigh_joint": 1,
-            "calf_joint": 5,
-            "ankle_pitch_joint": 0.8,
-            "ankle_roll_joint": 0.8,
-        }
+            "hip_pitch_joint": 2,
+            "hip_roll_joint": 2,
+            "thigh_joint": 2,
+            "calf_joint": 4,
+            "ankle_pitch_joint": 2,
+            "ankle_roll_joint": 2,
+        }'''
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
@@ -114,8 +131,8 @@ class HiclHugCfg(LeggedRobotCfg):
         penalize_contacts_on = ["thigh", "calf"]
         terminate_after_contacts_on = ["base_link","hip_pitch","hip_roll","thigh","calf"]
         self_collisions = 1  # 1 to disable, 0 to enable...bitwise filter
-        fix_base_link = True # fixe the base of the robot
-        # fix_base_link = False  # fixe the base of the robot
+        # fix_base_link = True # fixe the base of the robot
+        fix_base_link = False  # fixe the base of the robot
 
     class normalization:
         contact_force_range = [0.0, 200.0]
@@ -165,7 +182,7 @@ class HiclHugCfg(LeggedRobotCfg):
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = True
-        friction_range = [0., 0.01]
+        friction_range = [0.99, 1.0]
         # friction_range = [0.1, 0.45]
 
         randomize_base_mass = False
@@ -200,7 +217,7 @@ class HiclHugCfg(LeggedRobotCfg):
     class commands(LeggedRobotCfg.commands):
         # Vers: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
         num_commands = 4
-        resampling_time = 10.0  # time before command are changed[s]
+        resampling_time = 3.0  # time before command are changed[s]
         heading_command = True  # if true: compute ang vel command from heading error
         curriculum = True
         max_curriculum_x = [-1.2, 1.2]
@@ -213,8 +230,8 @@ class HiclHugCfg(LeggedRobotCfg):
             heading = [-3.14, 3.14]
             disturbance_range = [-320.0, 320.0]
             
-            gait_frequency = [2.7,2.8]
-            swing_height = [0.07,0.071]
+            gait_frequency = [1.8,1.81]
+            swing_height = [0.03,0.031]
             base_height = [-0.0,0]
 
     class rewards:
@@ -222,8 +239,8 @@ class HiclHugCfg(LeggedRobotCfg):
 
         base_height_target = 0.648
 
-        min_dist_fe = 0.1953 * 0.95
-        max_dist_fe = 0.1953 * 1.05
+        min_dist_fe = 0.205 * 0.95
+        max_dist_fe = 0.205 * 1.05
         min_dist_kn = 0.1953 * 0.95
         max_dist_kn = 0.1953 * 1.05
         # ref
@@ -247,32 +264,33 @@ class HiclHugCfg(LeggedRobotCfg):
             termination = 1.0
             
             # ====vel track======
+            lin_vel_track = 10 # 2 10
+            ang_vel_track = 2
             
             # ====body pose track=====
+            body_height_track = 10
+            roll_pitch_orient = 1  
             
             # ====foot pose track=====
-            foot_swing_track = 2
-            feet_contact = 2
-            feet_airtime = 1.5
-            
+            foot_swing_track = 40 # 2 5
+            feet_contact = 5
+            feet_airtime = 2
+            # contact_swing_track = -1
+            # style_similar = 80
             knee_distance = 0.16
             feet_distance = 0.16
             feet_distance_2 = 0.16
-            # contact_swing_track = -40
             ankle_roll_posture_roll = 0.5
-            ankle_roll_posture_pitch = 0.5
+            ankle_roll_posture_pitch = 1.5 *10
             # ====slow=====
-            action_smoothness = -4e-3
+            action_smoothness = -2e-3 # -2e-4
             torques = -1e-6
             dof_vel = -5e-4
             dof_acc = -1e-7
             # ====joint regulation======
-            joint_pos = 1.0
+            joint_pos = 10.0
             
-            # lin_vel_track = 2
-            # ang_vel_track = 2
             
-            # body_height_track = -40
             # foot_swing_track = -30
             # contact_swing_track = -2
             
@@ -301,7 +319,7 @@ class HiclHugCfg(LeggedRobotCfg):
             # # ===feet motion===========
             # feet_contact_forces = -0.02
             # feet_swing_height =1
-            # foot_slip = -2
+            foot_slip = -2
             # boundary = -10
             # # ===pos===================
             # joint_pos = 1.0
@@ -318,10 +336,10 @@ class HiclHugCfgPPO(LeggedRobotCfgPPO):
         # actor_hidden_dims = [512, 256, 128]
         # critic_hidden_dims = [512, 256, 128]
 
-        actor_hidden_dims = [64]
-        critic_hidden_dims = [64]
+        actor_hidden_dims = [32]
+        critic_hidden_dims = [32]
         rnn_hidden_size = 64
-        rnn_num_layers = 2
+        rnn_num_layers = 1
 
     class algorithm(LeggedRobotCfgPPO.algorithm):
         entropy_coef = 0.01
@@ -341,7 +359,7 @@ class HiclHugCfgPPO(LeggedRobotCfgPPO):
         resume = False
 
         num_steps_per_env = 25  # per iteration
-        max_iterations = 501  # number of policy updates
+        max_iterations = 1501  # number of policy updates
         # logging
         save_interval = (
             25  # Please check for potential savings every `save_interval` iterations.

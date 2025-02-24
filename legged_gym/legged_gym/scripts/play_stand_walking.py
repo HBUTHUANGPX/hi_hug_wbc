@@ -40,7 +40,7 @@ from legged_gym.utils.helpers import (
     class_to_dict,
     export_lstm_model,
 )
-from legged_gym.envs.hi_hug.hi_env_hug import HiHugEnv as rb_env
+from legged_gym.envs.hicl_hug.hicl_env_hug import HiclHugEnv as rb_env
 import numpy as np
 import torch
 import pickle
@@ -52,8 +52,9 @@ import queue
 import time
 from multiprocessing import Process, Value
 data_queue = queue.Queue()
-plot_num = 6
+plot_num = 8
 def plot_data(data_queue):
+    global plot_num
     print("plot_data")
     plt.ion()  # 开启交互模式
     fig, axs = plt.subplots(plot_num, 1, figsize=(10, 12))  # 创建 8 个子图
@@ -98,6 +99,22 @@ def play(args):  # dwaq
     env_cfg.asset.fix_base_link = True
     env_cfg.init_state.pos = [0.0, 0.0, 0.648]
     env_cfg.sim.physx.num_threads = 12
+    env_cfg.control.stiffness ={
+            "hip_pitch_joint": 4000.0,
+            "hip_roll_joint": 2000.0,
+            "thigh_joint": 2000.0,
+            "calf_joint": 4000.0,
+            "ankle_pitch_joint": 2000,
+            "ankle_roll_joint": 2000,
+        }
+    env_cfg.control.damping = {
+            "hip_pitch_joint": 50,
+            "hip_roll_joint": 80,
+            "thigh_joint": 80,
+            "calf_joint": 50,
+            "ankle_pitch_joint": 50,
+            "ankle_roll_joint": 50,
+        }
     # prepare environment
     env : rb_env
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
@@ -127,16 +144,24 @@ def play(args):  # dwaq
     plot_thread = threading.Thread(target=plot_data, args=(data_queue,))
     plot_thread.daemon = True
     plot_thread.start()
-    
+    global plot_num
     for i in range(10 * int(env.max_episode_length)):
-        actions = policy(obs.detach())*0
+        actions = policy(obs.detach()) *0
+        
         # actions = policy(obs.detach())
         # actions = policy(obs.detach())
         # actions = policy(obs.detach(), obs_hist.detach())
+        fh,lt,err,cdf,nmerr,rew=env._reward_foot_swing_track(play=True)
+        # actions[:,0:1] -= 1*lt
+        # actions[:,3:4] += 2*lt
+        # actions[:,4:5] -= 1*lt
+        # actions[:,6:7] -= 4*lt
+        # actions[:,9:10] += 8*lt
+        # actions[:,10:11] -= 4*lt
         obs, _, _, obs_hist, rews, dones, infos = env.step(actions.detach())
         
         # env._reward_feet_distance()
-        fh,lt,err,cdf,nmerr,rew=env._reward_foot_swing_track(play=True)
+        # correlation_value,diff_magnitude,reward_frequency=env._reward_style_similar(play=True)
         # norm_force,exp_force,norm_vel,exp_vel=env._reward_contact_swing_track(play = True)
         # aa = env.C_fun(env.phy_1,.05)
         # merged_tensor = torch.cat([
@@ -144,14 +169,21 @@ def play(args):  # dwaq
         #     env.clock_2,
         #     env.phy_1,
         #     env.phy_1_bar], dim=1)[0,:]
-        print(fh[0,0])
+        # print(fh[0,0])
+        # print(err.size())
+        # print(nmerr.size())
+        # print(rew.size())
         merged_tensor = torch.cat([
             fh,
-            lt,
-            err,
-            cdf.unsqueeze(1),
-            nmerr.unsqueeze(1),
-            rew.unsqueeze(1)], dim=1)[0,:]
+            # lt,
+            # err,
+            # nmerr.unsqueeze(1),
+            # rew.unsqueeze(1),
+            # correlation_value.unsqueeze(1),
+            # diff_magnitude.unsqueeze(1),
+            # reward_frequency.unsqueeze(1),
+            ], dim=1)[0,:]
+        plot_num = 5
         data_queue.put(merged_tensor)  
         
 if __name__ == "__main__":

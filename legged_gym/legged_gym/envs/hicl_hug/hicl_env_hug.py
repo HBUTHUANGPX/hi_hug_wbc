@@ -342,7 +342,17 @@ class HiclHugEnv(LeggedRobot):
 
         self.swing_mask_l = self.swing_mask[:, 0]
         self.swing_mask_r = self.swing_mask[:, 1]
-
+        feet_height = self.rigid_state[:, self.feet_indices - 1, 2] - 0.048
+        foot_pos_world = self.rigid_state[:, self.knee_indices, 0:3]
+        foot_pos_base_left = quat_rotate_inverse(
+            self.base_quat, foot_pos_world[:, 0, :] - self.base_pos
+        )
+        foot_pos_base_right = quat_rotate_inverse(
+            self.base_quat, foot_pos_world[:, 1, :] - self.base_pos
+        )
+        # print(foot_pos_base_left[0,1])
+        self.feet_height_base_l = foot_pos_base_left[:,2:3] + 0.4294
+        self.feet_height_base_r = foot_pos_base_right[:,2:3] + 0.4294
         # compute observations, rewards, resets, ...
         self.check_termination()
         self.compute_reward()
@@ -784,7 +794,7 @@ class HiclHugEnv(LeggedRobot):
         """
         self.command_catrgories[env_ids] = torch.randint(
             1,
-            2,
+            5,
             (len(env_ids), 1),
             device=self.device,
             requires_grad=False,
@@ -1172,6 +1182,21 @@ class HiclHugEnv(LeggedRobot):
             requires_grad=False,
         )
         self.init_behavior_command()
+        self._init_fft()
+        self.feet_height_base_l = torch.zeros(
+            self.num_envs,
+            1,
+            dtype=torch.float,
+            device=self.device,
+            requires_grad=False,
+        )
+        self.feet_height_base_r = torch.zeros(
+            self.num_envs,
+            1,
+            dtype=torch.float,
+            device=self.device,
+            requires_grad=False,
+        )
 
     def get_body_orientation(self, return_yaw=False):
         r, p, y = euler_from_quat(self.base_quat)
@@ -1362,7 +1387,7 @@ class HiclHugEnv(LeggedRobot):
             (
                 self.base_ang_vel * self.obs_scales.ang_vel,  # 3
                 self.projected_gravity,  # 3
-                self.commands[:, :3] * self.commands_scale * 0,  # 3
+                self.commands[:, :3] * self.commands_scale,  # 3
                 # self.command_height,
                 self.standing_command_mask.unsqueeze(1),  # 1
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,  # 12
@@ -1375,6 +1400,8 @@ class HiclHugEnv(LeggedRobot):
                 self.psi,  # 1
                 self.clock_1,  # 1
                 self.clock_2,  # 1
+                self.feet_height_base_l,
+                self.feet_height_base_r,
             ),
             dim=-1,
         )  # 48
@@ -1390,7 +1417,7 @@ class HiclHugEnv(LeggedRobot):
             (
                 self.base_ang_vel * self.obs_scales.ang_vel,  # 3
                 self.projected_gravity,  # 3
-                self.commands[:, :3] * self.commands_scale *0,  # 3
+                self.commands[:, :3] * self.commands_scale,  # 3
                 # self.command_height,
                 (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,  # 12
                 self.dof_vel * self.obs_scales.dof_vel,  # 12
@@ -1411,6 +1438,8 @@ class HiclHugEnv(LeggedRobot):
                 self.psi,  # 1
                 self.clock_1,  # 1
                 self.clock_2,  # 1
+                self.feet_height_base_l,
+                self.feet_height_base_r,
             ),
             dim=-1,
         )
@@ -1466,7 +1495,7 @@ class HiclHugEnv(LeggedRobot):
         return noise_vec
 
     # ================HugWBC========================
-    
+
     def _reward_ankle_roll_posture_roll(self):
         contact = self.contact_forces[:, self.feet_indices, 2] > 5.0
         feet_eular_0 = get_euler_xyz_tensor(
@@ -1477,13 +1506,16 @@ class HiclHugEnv(LeggedRobot):
         )[:, 0:1]
         # print(feet_eular_1.size())
         rew = torch.exp(
-            -(torch.norm(feet_eular_0* contact[:,0], dim=1) + torch.norm(feet_eular_1* contact[:,1], dim=1))
+            -(
+                torch.norm(feet_eular_0 * contact[:, 0], dim=1)
+                + torch.norm(feet_eular_1 * contact[:, 1], dim=1)
+            )
         )
         # print(nn.size())
         return rew
 
     def _reward_ankle_roll_posture_pitch(self):
-        contact = self.contact_forces[:, self.feet_indices, 2] > 5.0
+        contact = self.contact_forces[:, self.feet_indices, 2] > 0.1
 
         feet_eular_0 = get_euler_xyz_tensor(
             self.rigid_state[:, self.feet_indices[0], 3:7]
@@ -1493,10 +1525,51 @@ class HiclHugEnv(LeggedRobot):
         )[:, 1:2]
         # print(feet_eular_1.size())
         rew = torch.exp(
-            -(torch.norm(feet_eular_0 * contact[:,0], dim=1) + torch.norm(feet_eular_1* contact[:,1], dim=1))
+            -(
+                torch.norm(feet_eular_0 * contact[:, 0], dim=1)
+                + torch.norm(feet_eular_1 * contact[:, 1], dim=1)
+            )
         )
         # print(nn.size())
         return rew
+
+    def _init_fft(self):
+        window_size = int(100 * 4.0)
+        self.buffer_left = torch.zeros(self.num_envs, window_size, device=self.device)
+        self.buffer_right = torch.zeros(self.num_envs, window_size, device=self.device)
+        self.alpha = 1.0
+        self.beta = 1.0
+        self.tau_samples = int(100 * 1 / 0.27)
+
+    def _reward_style_similar(self, play=False):
+        feet_height = self.rigid_state[:, self.feet_indices - 1, 2] - 0.048
+
+        self.buffer_left = torch.roll(self.buffer_left, shifts=-1, dims=1)
+        self.buffer_left[:, -1] = feet_height[:, 0]
+        self.buffer_right = torch.roll(self.buffer_right, shifts=-1, dims=1)
+        self.buffer_right[:, -1] = feet_height[:, 1]
+
+        # 计算FFT
+        X_l = torch.fft.fft(self.buffer_left, dim=1)
+        X_r = torch.fft.fft(self.buffer_right, dim=1)
+        cross_power = X_l * torch.conj(X_r)
+        R = torch.fft.ifft(cross_power, dim=1)
+        correlation_value = R[:, self.tau_samples].real
+
+        # 计算幅度谱差
+        magnitude_spectrum_l = torch.abs(X_l)
+        magnitude_spectrum_r = torch.abs(X_r)
+        diff_magnitude = torch.mean(
+            (magnitude_spectrum_l - magnitude_spectrum_r) ** 2, dim=1
+        )
+
+        # 计算频域奖励
+        reward_frequency = self.alpha * correlation_value - self.beta * diff_magnitude
+        if play:
+            return correlation_value, diff_magnitude, reward_frequency
+        else:
+            return reward_frequency
+
 
     # ========task reward=========
     def _reward_lin_vel_track(self):
@@ -1514,30 +1587,35 @@ class HiclHugEnv(LeggedRobot):
         error = self.root_states[:, 2:3] - (
             self.cfg.rewards.base_height_target + self.h_t
         )
-        _rew = torch.exp(-torch.norm(error, p=2, dim=1))
+        _rew = torch.exp(-torch.norm(error, p=2, dim=1)/0.01)
         return _rew
 
     def _reward_foot_swing_track(self, play=False):
-        feet_height = self.rigid_state[:, self.feet_indices-1, 2] - 0.048
-        err_1 = feet_height[:, 0:1] - self.l_t_1
-        err_2 = feet_height[:, 1:2] - self.l_t_2
+        feet_height = self.rigid_state[:, self.feet_indices - 1, 2] - 0.048
+        lt1 = self.l_t_1.squeeze()
+        lt2 = self.l_t_2.squeeze()
+        err_1 = feet_height[:, 0] - lt1
+        err_2 = feet_height[:, 1] - lt2
         # print(m_cdf.size())
         # print((torch.norm(err_1, p=2,dim=1)).size())
-        eep_1 = self._negsqrd_exp(torch.norm(err_1, p=2, dim=1),0.05)
-        eep_2 = self._negsqrd_exp(torch.norm(err_2, p=2, dim=1),0.05)
+        eep_1 = self._negsqrd_exp(torch.abs(err_1), 0.03)
+        eep_2 = self._negsqrd_exp(torch.abs(err_2), 0.03)
         # _rew_1 = (1 - self.CDF_1).squeeze(1) * (eep_1)
         # _rew_2 = (1 - self.CDF_2).squeeze(1) * (eep_2)
-        _rew_1 = (eep_1)
-        _rew_2 = (eep_2)
-        _rew = (_rew_1 + _rew_2)/2
+        _rew_1 = eep_1
+        _rew_1[lt1<0.005] = torch.ones_like(_rew_1)[lt1<0.005]
+        _rew_2 = eep_2
+        _rew_2[lt2<0.005] = torch.ones_like(_rew_2)[lt2<0.005]
+        
+        _rew = (_rew_1 + _rew_2) / 2
         if play:
             return (
-                feet_height[:, 0:1],
-                self.l_t_1,
-                err_1,
-                (1 - self.CDF_1).squeeze(1),
-                eep_1,
-                _rew_1,
+                feet_height[:, 1:2],
+                self.l_t_2,
+                torch.abs(err_2),
+                (1 - self.CDF_2).squeeze(1),
+                eep_2,
+                _rew_2,
             )
         else:
             return _rew
@@ -1546,18 +1624,18 @@ class HiclHugEnv(LeggedRobot):
         foot_contact_force = self.contact_forces[:, self.feet_indices, :]
         foot_velocity = self.rigid_state[:, self.feet_indices, 7:9]
         _r_fcf_1 = (1 - self.CDF_1) * (
-            1 - torch.exp(torch.norm(foot_contact_force[:, 0:1, :], p=2, dim=2) / 500)
+            1 - torch.exp(torch.norm(foot_contact_force[:, 0:1, :], p=2, dim=2) / 100)
         )
         _r_fcf_2 = (1 - self.CDF_2) * (
-            1 - torch.exp(torch.norm(foot_contact_force[:, 1:2, :], p=2, dim=2) / 500)
+            1 - torch.exp(torch.norm(foot_contact_force[:, 1:2, :], p=2, dim=2) / 100)
         )
         _r_fw_1 = self.CDF_1 * (
-            1 - torch.exp(torch.norm(foot_velocity[:, 0:1, :], p=2, dim=2) / 50)
+            1 - torch.exp(torch.norm(foot_velocity[:, 0:1, :], p=2, dim=2) / 20)
         )
         _r_fw_2 = self.CDF_2 * (
-            1 - torch.exp(torch.norm(foot_velocity[:, 1:2, :], p=2, dim=2) / 50)
+            1 - torch.exp(torch.norm(foot_velocity[:, 1:2, :], p=2, dim=2) / 20)
         )
-        _rew = (-_r_fcf_1*0 - _r_fcf_2*0 + _r_fw_1 + _r_fw_2).squeeze()
+        _rew = (-_r_fcf_1 * 0 - _r_fcf_2 * 0 + _r_fw_1 + _r_fw_2).squeeze()
         if play:
             return (
                 torch.norm(foot_contact_force[:, 0:1, :], p=2, dim=2) / 500,
@@ -1592,10 +1670,6 @@ class HiclHugEnv(LeggedRobot):
         _rew = torch.norm(err, p=2, dim=1)
         return _rew
 
-    # def _reward_action_smoothness(self):
-    #     err = self.last_last_actions - 2 * self.last_actions + self.actions
-    #     _rew = torch.norm(err, p=2, dim=1)
-    #     return _rew
 
     def _reward_joint_torque(self):
         _rew = torch.norm(self.torques, p=2, dim=1)
@@ -1718,12 +1792,12 @@ class HiclHugEnv(LeggedRobot):
         This is important for achieving fluid motion and reducing mechanical stress.
         """
         term_1 = torch.sum(torch.square(self.last_actions - self.actions), dim=1)
-        term_2 = 12 * torch.sum(
+        term_2 = torch.sum(
             torch.square(self.actions + self.last_last_actions - 2 * self.last_actions),
             dim=1,
         )
-        term_3 = 0.05 * torch.sum(torch.abs(self.actions), dim=1)
-        return (term_1 + term_2 + term_3) * (1 - self.dist_norm)
+        term_3 = torch.sum(torch.abs(self.actions), dim=1)
+        return (0.2 * term_1 +120 * term_2 + 0.05 * term_3)
 
     def _reward_torques(self):
         """
@@ -1749,16 +1823,6 @@ class HiclHugEnv(LeggedRobot):
         ) * (1 - self.dist_norm)
 
     # ===feet motion===========
-
-    def _reward_feet_contact_forces(self):
-        return torch.sum(
-            (
-                torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1)
-                - self.cfg.rewards.max_contact_force
-            ).clip(0, 400),
-            dim=1,
-        )
-
     def _reward_feet_contact(self, play=False):
         # Penalize feet contact
         _rew = torch.zeros(
@@ -1856,6 +1920,15 @@ class HiclHugEnv(LeggedRobot):
         else:
             return _rew
 
+    def _reward_feet_contact_forces(self):
+        return torch.sum(
+            (
+                torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1)
+                - self.cfg.rewards.max_contact_force
+            ).clip(0, 400),
+            dim=1,
+        )
+
     def _reward_feet_swing_height(self):
         _rew = torch.zeros(
             self.num_envs, dtype=torch.float, device=self.device, requires_grad=False
@@ -1909,11 +1982,11 @@ class HiclHugEnv(LeggedRobot):
     # ===pos===================
     def _reward_joint_pos(self):
         diff = self.dof_pos - self.ref_dof_pos
-        _scale_l = [0.2, 2, 1, 0.2, 0.2, 2] * (2)
+        _scale_l = [0., 1, 1, 0.0, 0.0, 1] * (2)
         _scale = torch.tensor(
             _scale_l, dtype=torch.float, device=self.device, requires_grad=False
         )
-        r = torch.exp(-6 * torch.norm(diff[:, :] * _scale, dim=1))
+        r = torch.exp(-torch.sum(torch.abs(diff[:, :] * _scale),dim=1))
         return r
 
     def _reward_default_joint_pos(self):
@@ -1933,9 +2006,7 @@ class HiclHugEnv(LeggedRobot):
         Calculates the reward based on the distance between the feet. Penilize feet get close to each other or too far away.
         """
 
-        foot_pos_world = (
-            self.rigid_state[:, self.feet_indices, 0:3]
-        ) 
+        foot_pos_world = self.rigid_state[:, self.feet_indices, 0:3]
         foot_pos_base_left = quat_rotate_inverse(
             self.base_quat, foot_pos_world[:, 0, :] - self.base_pos
         )
@@ -1960,9 +2031,7 @@ class HiclHugEnv(LeggedRobot):
         Calculates the reward based on the distance between the feet. Penilize feet get close to each other or too far away.
         """
 
-        foot_pos_world = (
-            self.rigid_state[:, self.feet_indices - 1, 0:3]
-        ) 
+        foot_pos_world = self.rigid_state[:, self.feet_indices - 1, 0:3]
         foot_pos_base_left = quat_rotate_inverse(
             self.base_quat, foot_pos_world[:, 0, :] - self.base_pos
         )
@@ -1981,7 +2050,7 @@ class HiclHugEnv(LeggedRobot):
         return (
             torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)
         ) / 2
-        
+
     def _reward_knee_distance(self):
         """
         Calculates the reward based on the distance between the knee of the humanoid.
