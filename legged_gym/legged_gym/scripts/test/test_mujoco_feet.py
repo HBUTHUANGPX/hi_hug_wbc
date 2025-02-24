@@ -101,9 +101,8 @@ class pin_mj:
         
 
 if __name__ =="__main__":
-    base_path = "//home/sunteng/HPX_Loco/Hug_WBC/legged_gym/resources/robots"
-    # robot_patch = "/hi_12dof_250108_4/urdf/hi_12dof_250108_4_rl_3.urdf"
-    robot_patch = "/minipi_12dof_250110/urdf/minipi_12dof_250110_rl.urdf"
+    base_path = "/home/hpx/HPX_Loco/hi_hug_wbc/legged_gym/resources/robots"
+    robot_patch = "/hi_cl_23_240925/urdf/hi_cl_23_240925_rl.urdf"
     a = pin_mj(base_path+robot_patch)
     hh = a.get_foot_pos(np.array([0]*(12), dtype=float))
     print(hh)

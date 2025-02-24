@@ -16,5 +16,7 @@ setup(
                       'wandb',
                       'swanlab',
                       'mujoco==2.3.6',
-                      'mujoco-python-viewer']
+                      'mujoco-python-viewer',
+                      'tqdm',
+                      'pygame']
 )

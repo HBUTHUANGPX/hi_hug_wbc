@@ -336,14 +336,15 @@ class HiclHugEnv(LeggedRobot):
 
         self._post_physics_step_callback()
         self.update_behavior_command()
+        self.first_rc_filter()
         swing_mask = 1 - self._get_gait_phase()
         self.swing_mask = swing_mask * (1 - self.standing_command_mask.unsqueeze(1))
         self.stance_mask = 1 - self.swing_mask
 
         self.swing_mask_l = self.swing_mask[:, 0]
         self.swing_mask_r = self.swing_mask[:, 1]
-        feet_height = self.rigid_state[:, self.feet_indices - 1, 2] - 0.048
-        foot_pos_world = self.rigid_state[:, self.knee_indices, 0:3]
+        
+        foot_pos_world = self.rigid_state[:, self.feet_indices, 0:3]
         foot_pos_base_left = quat_rotate_inverse(
             self.base_quat, foot_pos_world[:, 0, :] - self.base_pos
         )
@@ -353,6 +354,9 @@ class HiclHugEnv(LeggedRobot):
         # print(foot_pos_base_left[0,1])
         self.feet_height_base_l = foot_pos_base_left[:,2:3] + 0.4294
         self.feet_height_base_r = foot_pos_base_right[:,2:3] + 0.4294
+        
+        self.feet_x_base_l = foot_pos_base_left[:,0:1]
+        self.feet_x_base_r = foot_pos_base_right[:,0:1]
         # compute observations, rewards, resets, ...
         self.check_termination()
         self.compute_reward()
@@ -786,6 +790,10 @@ class HiclHugEnv(LeggedRobot):
             )[mask_big]
         return phy_i_bar
 
+    def first_rc_filter(self):
+        
+        ...
+        
     def _resample_commands(self, env_ids):
         """Randommly select commands of some environments
 
@@ -793,7 +801,7 @@ class HiclHugEnv(LeggedRobot):
             env_ids (List[int]): Environments ids for which new commands are needed
         """
         self.command_catrgories[env_ids] = torch.randint(
-            1,
+            0,
             5,
             (len(env_ids), 1),
             device=self.device,
@@ -1197,6 +1205,34 @@ class HiclHugEnv(LeggedRobot):
             device=self.device,
             requires_grad=False,
         )
+        self.feet_x_base_l = torch.zeros(
+            self.num_envs,
+            1,
+            dtype=torch.float,
+            device=self.device,
+            requires_grad=False,
+        )
+        self.feet_x_base_r = torch.zeros(
+            self.num_envs,
+            1,
+            dtype=torch.float,
+            device=self.device,
+            requires_grad=False,
+        )
+        self.feet_y_base_l = torch.zeros(
+            self.num_envs,
+            1,
+            dtype=torch.float,
+            device=self.device,
+            requires_grad=False,
+        )
+        self.feet_y_base_r = torch.zeros(
+            self.num_envs,
+            1,
+            dtype=torch.float,
+            device=self.device,
+            requires_grad=False,
+        )
 
     def get_body_orientation(self, return_yaw=False):
         r, p, y = euler_from_quat(self.base_quat)
@@ -1394,14 +1430,16 @@ class HiclHugEnv(LeggedRobot):
                 self.dof_vel * self.obs_scales.dof_vel,  # 12
                 self.actions,  # 12
                 # self.root_acc_base_with_g, # 3
-                self.f_t,  # 1
-                self.l_t,  # 1
+                self.f_t,  # 1 46
+                self.l_t,  # 1 47
                 # self.h_t,  # 1
-                self.psi,  # 1
-                self.clock_1,  # 1
-                self.clock_2,  # 1
+                self.psi,  # 1 48
+                self.clock_1,  # 1 49
+                self.clock_2,  # 1 50
                 self.feet_height_base_l,
                 self.feet_height_base_r,
+                self.feet_x_base_l,
+                self.feet_x_base_r,
             ),
             dim=-1,
         )  # 48
@@ -1440,6 +1478,8 @@ class HiclHugEnv(LeggedRobot):
                 self.clock_2,  # 1
                 self.feet_height_base_l,
                 self.feet_height_base_r,
+                self.feet_x_base_l,
+                self.feet_x_base_r,
             ),
             dim=-1,
         )
@@ -1603,9 +1643,9 @@ class HiclHugEnv(LeggedRobot):
         # _rew_1 = (1 - self.CDF_1).squeeze(1) * (eep_1)
         # _rew_2 = (1 - self.CDF_2).squeeze(1) * (eep_2)
         _rew_1 = eep_1
-        _rew_1[lt1<0.005] = torch.ones_like(_rew_1)[lt1<0.005]
+        _rew_1[lt1<0.005] = 0.3*torch.ones_like(_rew_1)[lt1<0.005]
         _rew_2 = eep_2
-        _rew_2[lt2<0.005] = torch.ones_like(_rew_2)[lt2<0.005]
+        _rew_2[lt2<0.005] = 0.3*torch.ones_like(_rew_2)[lt2<0.005]
         
         _rew = (_rew_1 + _rew_2) / 2
         if play:
@@ -1890,24 +1930,24 @@ class HiclHugEnv(LeggedRobot):
         _rew = torch.zeros(
             self.num_envs, dtype=torch.float, device=self.device, requires_grad=False
         )
-        # if standing command
-        if torch.any(self.standing_command_mask == 1):
-            _rew[self.standing_command_mask == 1] = 1
+        
         # else
         contact = self.contact_forces[:, self.feet_indices, 2] > 0
         self.contact_filt = torch.logical_and(
             contact, (self.feet_air_time > 0)
         )  # 是否第一次接触，如果接触就为1，不接触就为0
         # print(self.contact_filt[0,:],(self.feet_air_time * self.contact_filt)[0,:])
-        self.last_contacts = contact  # 更新上一帧的接触情况
         self.feet_air_time += self.dt
-        air_time_reward: torch.Tensor = self.feet_air_time * self.contact_filt - 0.5
-        self.feet_air_time *= ~contact  # 不接触的话就持续计数，接触就清零
-        if torch.any(self.standing_command_mask == 0):
-            _rew[self.standing_command_mask == 0] = air_time_reward[
-                self.standing_command_mask == 0
-            ].sum(dim=1)
+        T = (1/self.f_t).repeat_interleave(2,dim=1)
+        air_time_reward: torch.Tensor =(T-self.feet_air_time) * self.contact_filt
+        air_time_reward = air_time_reward.sum(dim=1)/2
+        self.feet_air_time *= ~self.last_contacts  # 不接触的话就持续计数，接触就清零
+        self.last_contacts = contact  # 更新上一帧的接触情况
+        _rew = torch.exp(air_time_reward) - 1
         # print(_rew)
+        # if standing command
+        if torch.any(self.standing_command_mask == 1):
+            _rew[self.standing_command_mask == 1] = 1
         if play:
             return (
                 self.standing_command_mask,
@@ -2051,6 +2091,20 @@ class HiclHugEnv(LeggedRobot):
             torch.exp(-torch.abs(d_min) * 100) + torch.exp(-torch.abs(d_max) * 100)
         ) / 2
 
+    def _reward_feet_distance_x(self):
+        foot_pos_world = self.rigid_state[:, self.feet_indices - 1, 0:3]
+        foot_pos_base_left = quat_rotate_inverse(
+            self.base_quat, foot_pos_world[:, 0, :] - self.base_pos
+        )
+        foot_pos_base_right = quat_rotate_inverse(
+            self.base_quat, foot_pos_world[:, 1, :] - self.base_pos
+        )
+        foot_dist = torch.abs(
+            foot_pos_base_left[:, 0] - foot_pos_base_right[:, 0]
+        )
+        rew = self._negsqrd_exp(foot_dist,0.05)
+        return rew
+            
     def _reward_knee_distance(self):
         """
         Calculates the reward based on the distance between the knee of the humanoid.

@@ -35,7 +35,7 @@ from tqdm import tqdm
 from collections import deque
 from scipy.spatial.transform import Rotation as R
 from legged_gym import LEGGED_GYM_ROOT_DIR
-from legged_gym.envs.pai.pai_config_demo import PaiDemoRoughCfg
+from legged_gym.envs.hi_none_phase.hi_config_none_phase import HiNonePhaseCfg as cfg
 import torch
 
 import csv
@@ -47,12 +47,15 @@ import cv2
 import threading
 import glfw
 import matplotlib.animation as animation
+from typing import List
 
 
 class cmd:
     vx = 0.0
     vy = 0.0
     dyaw = 0.0
+
+
 def quat_rotate_inverse(q, v):
     q_w = q[-1]
     q_vec = q[:3]
@@ -60,50 +63,62 @@ def quat_rotate_inverse(q, v):
     b = np.cross(q_vec, v) * q_w * 2.0
     c = q_vec * np.dot(q_vec, v) * 2.0
     return a - b + c
+
+
 class env:
-    obs = 47
+    obs = 48
     num_single_obs = obs
-    frame_stack = 6
-    obs_his = obs * 5
+    frame_stack = cfg.env.num_obs_hist + 1
+    obs_his = obs * cfg.env.num_obs_hist
+
 
 class plot_line:
-    ax:plt.Axes 
-    def __init__(self,ax,style = "r-"):
+    ax: plt.Axes
+
+    def __init__(self, ax, style="r-"):
         self.x = []
         self.y = []
-        self.ax = ax 
+        self.ax = ax
         (self.line,) = self.ax.plot(self.x, self.y, style)
 
-    def update_xy(self,new_x,new_y):
+    def update_xy(self, new_x, new_y):
         self.x.append(new_x)
         self.y.append(new_y)
         self.line.set_xdata(self.x)
         self.line.set_ydata(self.y)
 
+
 class plot_one_figure:
     def __init__(self):
         self.init_figure()
+
     def init_figure(self):
         self.fig, self.ax = plt.subplots()
-        self.ax.set_xlabel('time')
-        self.ax.set_ylabel('value')
-        self.ax.set_title('plot')
+        self.ax.set_xlabel("time")
+        self.ax.set_ylabel("value")
+        self.ax.set_title("plot")
         self.ax.grid(True)
         self.true_v_ = plot_line(self.ax, "r-")
         self.net_v_ = plot_line(self.ax, "b-")
         self.derta_v_ = plot_line(self.ax, "g-")
 
-    def update_xy(self,x,true_vel,net_vel):
-        self.true_v_.update_xy(x, true_vel)
-        self.net_v_.update_xy(x, net_vel)
-        self.derta_v_.update_xy(
-            x, ((true_vel - net_vel+1e-8)/(1+true_vel+1e-8))
-        )
+    def update_xy(self, x, true_vel, net_vel):
+        # self.true_v_.update_xy(x, true_vel)
+        # self.net_v_.update_xy(x, net_vel)
+        self.derta_v_.update_xy(x, (true_vel - net_vel) / 10)
         self.ax.relim()  # 重新计算坐标轴范围
         self.ax.autoscale_view()  # 自动缩放视图
 
+    def update_xy2(self, x, pos, vel, tau):
+        self.true_v_.update_xy(x, pos)
+        self.net_v_.update_xy(x, vel)
+        self.derta_v_.update_xy(x, tau)
+        self.ax.relim()  # 重新计算坐标轴范围
+        self.ax.autoscale_view()  # 自动缩放视图
+
+
 class mujoco_visual:
-    def __init__(self) -> None:
+    def __init__(self,plot_index = 0) -> None:
         self.count_lowlevel = 0
         self.close = 1
         self.mujoco_close = 1
@@ -111,6 +126,10 @@ class mujoco_visual:
         self.vel = [0, 0, 0]
         self.w = [0, 0, 0]
         self.net_vel = [0, 0, 0]
+        self.q = [0] * (12)
+        self.tq = [0] * (12)
+        self.dq = [0] * (12)
+        self.plot_index = plot_index
 
     def quaternion_to_euler_array(self, quat):
         # Ensure quaternion is in the correct format [x, y, z, w]
@@ -161,16 +180,47 @@ class mujoco_visual:
             aa = plot_one_figure()
             pof.append(aa)
         while not self.stop_event.is_set():
-            for i,_pof in enumerate(pof):
-                _pof.update_xy(self.count_lowlevel * 0.001, self.vel[i], self.net_vel[i])
+            for i, _pof in enumerate(pof):
+                _pof.update_xy(
+                    self.count_lowlevel * 0.001, self.vel[i], self.net_vel[i]
+                )
             plt.draw()  # 绘制更新
             plt.pause(0.001)
-        for i,_pof in enumerate(pof):
+        for i, _pof in enumerate(pof):
             _pof.fig.savefig(f"sine_wave_{i}.png")  # 保存为 PNG 格式
         plt.ioff()
         plt.close("all")
 
-    def run_mujoco(self, policy, cfg:PaiDemoRoughCfg):
+    def plot_joint_thread(self):
+        plt.ion()  # 打开交互模式
+        pof: List[plot_one_figure] = []
+        num_figures = 1  # 假设需要三个画板
+        for i in range(num_figures):
+            aa = plot_one_figure()
+            pof.append(aa)
+        while not self.stop_event.is_set():
+            for i, _pof in enumerate(pof):
+                _pof.update_xy2(
+                    self.count_lowlevel * 0.001,
+                    self.q[self.plot_index],
+                    self.tq[self.plot_index],
+                    0,#self.tq[self.plot_index] - self.q[self.plot_index],
+                    # self.dq[self.plot_index],
+                )
+
+                # _pof.update_xy(
+                #     self.count_lowlevel * 0.001, self.q[0], self.tq[0]
+                # )
+                # print("plot==========:\n")
+                # print(self.q[4], self.tq[4], self.dq[4])
+            plt.draw()  # 绘制更新
+            plt.pause(0.001)
+        for i, _pof in enumerate(pof):
+            _pof.fig.savefig(f"sine_wave_{i}.png")  # 保存为 PNG 格式
+        plt.ioff()
+        plt.close("all")
+
+    def run_mujoco(self, policy, cfg:cfg):
         model = mujoco.MjModel.from_xml_path(cfg.sim_config.mujoco_model_path)
         model.opt.timestep = cfg.sim_config.dt
         data = mujoco.MjData(model)
@@ -179,7 +229,7 @@ class mujoco_visual:
         self.window = viewer.window
         target_q = np.zeros((cfg.env.num_actions), dtype=np.double)
         action = np.zeros((cfg.env.num_actions), dtype=np.double)
-
+        flip = 1
         hist_obs = deque()
         for _ in range(env.frame_stack):
             hist_obs.append(np.zeros([1, env.num_single_obs], dtype=np.double))
@@ -204,6 +254,9 @@ class mujoco_visual:
                 dq[i] = dq[i + 6]
                 dq[i + 6] = tmpdq
             # 1000hz -> 100hz
+            self.q = q
+            self.dq = dq
+
             if self.count_lowlevel % cfg.sim_config.decimation == 0:
                 obs = torch.zeros(1, env.obs, dtype=torch.float)
                 _q = quat
@@ -214,33 +267,57 @@ class mujoco_visual:
                     add = 3
                     obs[0, 3:6] = torch.tensor(v, dtype=torch.double)  # 3
                 else:
-                    add = 0   
+                    add = 0
+                # base_ang_vel
                 obs[0, :3] = torch.tensor(
                     omega * cfg.normalization.obs_scales.ang_vel, dtype=torch.double
                 )  # 3
-                obs[0, 3+add:6+add] = torch.tensor(projected_gravity, dtype=torch.double)  # 3
-                obs[0, 6+add] = torch.tensor(
+                # projected_gravity
+                obs[0, 3 + add : 6 + add] = torch.tensor(
+                    projected_gravity, dtype=torch.double
+                )  # 3
+                # commands
+                obs[0, 6 + add] = torch.tensor(
                     cmd.vx * cfg.normalization.obs_scales.lin_vel, dtype=torch.double
                 )
-                obs[0, 7+add] = torch.tensor(
+                obs[0, 7 + add] = torch.tensor(
                     cmd.vy * cfg.normalization.obs_scales.lin_vel, dtype=torch.double
                 )
-                obs[0, 8+add] = torch.tensor(
+                obs[0, 8 + add] = torch.tensor(
                     cmd.dyaw * cfg.normalization.obs_scales.ang_vel, dtype=torch.double
                 )
-                obs[0, 9+add:21+add] = torch.tensor(
+
+                standing_command_mask = torch.tensor(0.0, dtype=torch.double)
+                    # standing_command_mask = torch.tensor(1.0, dtype=torch.double)
+
+                obs[0, 9 + add] = standing_command_mask
+                # sin_pos
+                obs[0, 10 + add] = math.sin(
+                    2
+                    * math.pi
+                    * self.count_lowlevel
+                    * cfg.sim_config.dt
+                    / cfg.rewards.cycle_time
+                )
+                # cos_pos
+                obs[0, 11 + add] = math.cos(
+                    2
+                    * math.pi
+                    * self.count_lowlevel
+                    * cfg.sim_config.dt
+                    / cfg.rewards.cycle_time
+                )
+                # dof_pos
+                obs[0, 12 + add : 24 + add] = torch.tensor(
                     q * cfg.normalization.obs_scales.dof_pos, dtype=torch.double
                 )  # 12
-                obs[0, 21+add:33+add] = torch.tensor(
+                # dof_vel
+                obs[0, 24 + add : 36 + add] = torch.tensor(
                     dq * cfg.normalization.obs_scales.dof_vel, dtype=torch.double
                 )  # 12
-                obs[0, 33+add:45+add] = torch.tensor(action, dtype=torch.double)  # 12
-                obs[0, 45+add] = math.sin(
-                    2 * math.pi * self.count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time
-                )
-                obs[0, 46+add] = math.cos(
-                    2 * math.pi * self.count_lowlevel * cfg.sim_config.dt / cfg.rewards.cycle_time
-                )
+                # actions
+                obs[0, 36 + add : 48 + add] = torch.tensor(action, dtype=torch.double)  # 12
+
 
                 obs = np.clip(
                     obs,
@@ -257,17 +334,23 @@ class mujoco_visual:
                     policy_input[
                         0, i * env.num_single_obs : (i + 1) * env.num_single_obs
                     ] = hist_obs[i][0, :]
-                _action,_mean_vel = policy(torch.tensor(policy_input))
-                self.net_vel = _mean_vel[0].detach().numpy()
+                _action = policy(torch.tensor(policy_input))
+                # _action, _mean_vel = policy(torch.tensor(policy_input))
+                # self.net_vel = _mean_vel[0].detach().numpy()
                 action[:] = _action[0].detach().numpy()
                 action = np.clip(
                     action,
                     -cfg.normalization.clip_actions,
                     cfg.normalization.clip_actions,
                 )
-                # target_q = action * 0
                 target_q = action * cfg.control.action_scale
             target_dq = np.zeros((cfg.env.num_actions), dtype=np.double)
+            target_q = np.zeros((cfg.env.num_actions), dtype=np.double)
+            if self.count_lowlevel % (2 * 1000) == 0:
+                print("==========" + str(self.count_lowlevel) + "===========")
+                flip = -flip
+            target_q[self.plot_index] = flip * 0.1
+            self.tq = target_q
             # Generate PD control
             tau = self.pd_control(
                 target_q, q, cfg.robot_config.kps, target_dq, dq, cfg.robot_config.kds
@@ -283,12 +366,6 @@ class mujoco_visual:
 
             mujoco.mj_step(model, data)
             viewer.render()
-            if self.count_lowlevel > 10 * 1000:
-                cmd.vx = 0.1
-            if self.count_lowlevel > 25 * 1000:
-                cmd.vx = 0.2
-            if self.count_lowlevel > 40 * 1000:
-                cmd.vx = 0.4
             self.count_lowlevel += 1
         self.stop_event.set()
         viewer.close()
@@ -304,15 +381,15 @@ if __name__ == "__main__":
         type=str,
         required=False,
         help="Run to load from.",
-        default=f"{LEGGED_GYM_ROOT_DIR}/logs/pai_demo/exported/policies",
+        default=f"{LEGGED_GYM_ROOT_DIR}/logs/hi_none_phase/exported/policies",
     )
     parser.add_argument("--terrain", action="store_true", help="terrain or plane")
     args = parser.parse_args()
 
-    class Sim2simCfg(PaiDemoRoughCfg):
+    class Sim2simCfg(cfg):
 
         class sim_config:
-            mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v2.xml"
+            mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_12dof_250108_4/mjcf/hi_12dof_release_v1_fixed.xml"  # 平地
             sim_duration = 60.0
             dt = 0.001
             decimation = 10
@@ -320,20 +397,27 @@ if __name__ == "__main__":
         class robot_config:
             kps_l = []
             kds_l = []
-            for joint, vals in PaiDemoRoughCfg.control.stiffness.items():
+            for joint, vals in cfg.control.stiffness.items():
                 print(f"joint: {joint} vals: {vals}")
                 kps_l.append(vals)
 
-            for joint, vals in PaiDemoRoughCfg.control.damping.items():
+            for joint, vals in cfg.control.damping.items():
                 print(f"joint: {joint} vals: {vals}")
                 kds_l.append(vals)
-            kps = np.array(kps_l*(2),dtype=np.float32)
-            kds = np.array(kds_l*(2),dtype=np.float32)
+            # kps = np.array(
+            #     [80,40,40,80,50,10]*(2), 
+            #     dtype=np.double
+            # )  # v7
+
+            # kds = np.array(
+            #     [5,5,1,5,0.4,0.4]*(2),
+            #     dtype=np.double,
+            # )
             tau_limit = 40.0 * np.ones(12, dtype=np.double)
 
     policy = torch.jit.load(args.load_model + "/combined_model_dwaq.pt")
-    a = mujoco_visual()
-    matplotlib_thread = threading.Thread(target=a.plot_thread)
+    a = mujoco_visual(1)
+    matplotlib_thread = threading.Thread(target=a.plot_joint_thread)
     mujoco_thread = threading.Thread(target=a.run_mujoco, args=(policy, Sim2simCfg()))
     matplotlib_thread.start()
     mujoco_thread.start()

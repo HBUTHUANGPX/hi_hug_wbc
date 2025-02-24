@@ -38,10 +38,10 @@ class HiclHugCfg(LeggedRobotCfg):
         if obs_with_base_lin_vel:
             num_observations = 0
         else:
-            num_observations = 53
+            num_observations = 55
         num_obs_hist = 0
         num_actor_obs = num_observations
-        num_privileged_obs = 301
+        num_privileged_obs = 303
         num_critic_obs = num_privileged_obs
 
         num_actions = 12
@@ -224,7 +224,7 @@ class HiclHugCfg(LeggedRobotCfg):
         max_disturbance_range = [-440.0, 440.0]
 
         class ranges:
-            lin_vel_x = [-0.8, 0.8]  # min max [m/s]
+            lin_vel_x = [-1.8, 1.8]  # min max [m/s]
             lin_vel_y = [-0.5, 0.5]  # min max [m/s]
             ang_vel_yaw = [-0.9, 0.9]  # min max [rad/s]
             heading = [-3.14, 3.14]
@@ -269,7 +269,7 @@ class HiclHugCfg(LeggedRobotCfg):
             
             # ====body pose track=====
             body_height_track = 10
-            roll_pitch_orient = 1  
+            roll_pitch_orient = 10  
             
             # ====foot pose track=====
             foot_swing_track = 40 # 2 5
@@ -280,6 +280,7 @@ class HiclHugCfg(LeggedRobotCfg):
             knee_distance = 0.16
             feet_distance = 0.16
             feet_distance_2 = 0.16
+            feet_distance_x = 1
             ankle_roll_posture_roll = 0.5
             ankle_roll_posture_pitch = 1.5 *10
             # ====slow=====

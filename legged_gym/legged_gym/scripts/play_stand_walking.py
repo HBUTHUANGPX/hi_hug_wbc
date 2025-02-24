@@ -44,6 +44,7 @@ from legged_gym.envs.hicl_hug.hicl_env_hug import HiclHugEnv as rb_env
 import numpy as np
 import torch
 import pickle
+
 # import matplotlib
 # matplotlib.use('Agg')  # 使用非交互式后端
 import matplotlib.pyplot as plt
@@ -51,8 +52,11 @@ import threading
 import queue
 import time
 from multiprocessing import Process, Value
+
 data_queue = queue.Queue()
-plot_num = 8
+plot_num = 4
+
+
 def plot_data(data_queue):
     global plot_num
     print("plot_data")
@@ -77,6 +81,8 @@ def plot_data(data_queue):
         else:
             # print("cc")
             time.sleep(0.1)
+
+
 def play(args):  # dwaq
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     class_to_dict(env_cfg)
@@ -96,27 +102,27 @@ def play(args):  # dwaq
     env_cfg.domain_rand.push_robots = False
     env_cfg.domain_rand.push_robots = True
     # env_cfg.asset.fix_base_link = False#True
-    env_cfg.asset.fix_base_link = True
+    # env_cfg.asset.fix_base_link = True
     env_cfg.init_state.pos = [0.0, 0.0, 0.648]
     env_cfg.sim.physx.num_threads = 12
-    env_cfg.control.stiffness ={
-            "hip_pitch_joint": 4000.0,
-            "hip_roll_joint": 2000.0,
-            "thigh_joint": 2000.0,
-            "calf_joint": 4000.0,
-            "ankle_pitch_joint": 2000,
-            "ankle_roll_joint": 2000,
-        }
-    env_cfg.control.damping = {
-            "hip_pitch_joint": 50,
-            "hip_roll_joint": 80,
-            "thigh_joint": 80,
-            "calf_joint": 50,
-            "ankle_pitch_joint": 50,
-            "ankle_roll_joint": 50,
-        }
+    # env_cfg.control.stiffness ={
+    #         "hip_pitch_joint": 4000.0,
+    #         "hip_roll_joint": 2000.0,
+    #         "thigh_joint": 2000.0,
+    #         "calf_joint": 4000.0,
+    #         "ankle_pitch_joint": 2000,
+    #         "ankle_roll_joint": 2000,
+    #     }
+    # env_cfg.control.damping = {
+    #         "hip_pitch_joint": 50,
+    #         "hip_roll_joint": 80,
+    #         "thigh_joint": 80,
+    #         "calf_joint": 50,
+    #         "ankle_pitch_joint": 50,
+    #         "ankle_roll_joint": 50,
+    #     }
     # prepare environment
-    env : rb_env
+    env: rb_env
     env, _ = task_registry.make_env(name=args.task, args=args, env_cfg=env_cfg)
     obs, obs_hist = env.get_observations()
     # load policy
@@ -139,19 +145,17 @@ def play(args):  # dwaq
         print("policy ", policy)
         # export_lstm_model(ppo_runner.alg.actor_critic,path,48,0)
 
-
     # 启动子线程进行绘图
     plot_thread = threading.Thread(target=plot_data, args=(data_queue,))
     plot_thread.daemon = True
     plot_thread.start()
     global plot_num
     for i in range(10 * int(env.max_episode_length)):
-        actions = policy(obs.detach()) *0
-        
+        actions = policy(obs.detach())
+
         # actions = policy(obs.detach())
         # actions = policy(obs.detach())
         # actions = policy(obs.detach(), obs_hist.detach())
-        fh,lt,err,cdf,nmerr,rew=env._reward_foot_swing_track(play=True)
         # actions[:,0:1] -= 1*lt
         # actions[:,3:4] += 2*lt
         # actions[:,4:5] -= 1*lt
@@ -159,33 +163,32 @@ def play(args):  # dwaq
         # actions[:,9:10] += 8*lt
         # actions[:,10:11] -= 4*lt
         obs, _, _, obs_hist, rews, dones, infos = env.step(actions.detach())
-        
-        # env._reward_feet_distance()
-        # correlation_value,diff_magnitude,reward_frequency=env._reward_style_similar(play=True)
-        # norm_force,exp_force,norm_vel,exp_vel=env._reward_contact_swing_track(play = True)
-        # aa = env.C_fun(env.phy_1,.05)
+
+        # fh,lt,err,cdf,nmerr,rew=env._reward_foot_swing_track(play=True)
         # merged_tensor = torch.cat([
-        #     env.clock_1,
-        #     env.clock_2,
-        #     env.phy_1,
-        #     env.phy_1_bar], dim=1)[0,:]
-        # print(fh[0,0])
-        # print(err.size())
-        # print(nmerr.size())
-        # print(rew.size())
-        merged_tensor = torch.cat([
-            fh,
-            # lt,
-            # err,
-            # nmerr.unsqueeze(1),
-            # rew.unsqueeze(1),
-            # correlation_value.unsqueeze(1),
-            # diff_magnitude.unsqueeze(1),
-            # reward_frequency.unsqueeze(1),
-            ], dim=1)[0,:]
-        plot_num = 5
-        data_queue.put(merged_tensor)  
-        
+        #     fh,
+        #     lt,
+        #     err.unsqueeze(1),
+        #     nmerr.unsqueeze(1),
+        #     rew.unsqueeze(1),
+        #     ], dim=1)[0,:]
+        # plot_num = 5
+
+        # scm,cnt,cf,fat,atr,r = env._reward_feet_airtime(play=True)
+        # merged_tensor = torch.cat([
+        #     scm.unsqueeze(1),
+        #     cnt[:,0:1],
+        #     cf[:,0:1],
+        #     fat[:,0:1],
+        #     atr.unsqueeze(1),
+        #     r.unsqueeze(1)
+        #     ], dim=1)[0,:]
+        merged_tensor = torch.cat([obs[:, 46:47], obs[:, 48:49], obs[:, 49:50],env.phy_1_bar], dim=1)[
+            0, :
+        ]
+        data_queue.put(merged_tensor)
+
+
 if __name__ == "__main__":
     EXPORT_POLICY = True
     RECORD_FRAMES = False

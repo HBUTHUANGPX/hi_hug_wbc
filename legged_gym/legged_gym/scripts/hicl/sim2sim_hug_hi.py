@@ -38,7 +38,10 @@ from scipy.spatial.transform import Rotation as R
 from legged_gym import LEGGED_GYM_ROOT_DIR
 
 # from legged_gym.envs.pai.pai_config import PaiRoughCfg
-from legged_gym.envs.pai_stay.pai_config_stay import PaiStayCfg
+# from legged_gym.envs.hi_none_phase.hi_config_none_phase import HiNonePhaseCfg as cfg
+from legged_gym.envs.hicl_hug.hicl_config_hug import HiclHugCfg as cfg
+
+# from legged_gym.envs.pai.pai_config_demo import PaiDemoRoughCfg
 from isaacgym.torch_utils import *
 
 import torch
@@ -49,20 +52,22 @@ import threading
 import queue
 import pygame
 import time
-
+from legged_gym.scripts.test import pin_mj
+base_path = "/home/hpx/HPX_Loco/hi_hug_wbc/legged_gym/resources/robots"
+robot_patch = "/hi_cl_23_240925/urdf/hi_cl_23_240925_rl.urdf"
+_pin = pin_mj(base_path+robot_patch)
+hh = _pin.get_foot_pos(np.array([0]*(12), dtype=float))
 
 class cmd:
     vx = 0.0
     vy = 0.0
     dyaw = 0.0
-
-
+    
 class env:
-    obs = 48
+    obs = cfg.env.num_observations
     num_single_obs = obs
-    frame_stack = 16
-    obs_his = obs * 15
-
+    frame_stack = cfg.env.num_obs_hist + 1
+    obs_his = obs * cfg.env.num_obs_hist
 
 def quat_rotate_inverse(q, v):
     q_w = q[-1]
@@ -71,7 +76,6 @@ def quat_rotate_inverse(q, v):
     b = np.cross(q_vec, v) * q_w * 2.0
     c = q_vec * np.dot(q_vec, v) * 2.0
     return a - b + c
-
 
 def quat_rotate_inverse_ori(q, v):
     shape = q.shape
@@ -86,7 +90,6 @@ def quat_rotate_inverse_ori(q, v):
     )
     return a - b + c
 
-
 def get_obs(data):
     """Extracts an observation from the mujoco data structure"""
     q = data.qpos.astype(np.double)
@@ -97,7 +100,6 @@ def get_obs(data):
     omega = data.sensor("angular-velocity").data.astype(np.double)
     gvec = r.apply(np.array([0.0, 0.0, -1.0]), inverse=True).astype(np.double)
     return (q, dq, quat, v, omega, gvec)
-
 
 def pd_control(target_q, q, kp, target_dq, dq, kd):
     """Calculates torques from position commands"""
@@ -111,7 +113,7 @@ def process_value(value, threshold=0.01):
     return 0 if abs(value) < threshold else value
 
 
-def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiStayCfg):
+def run_mujoco(control_queue: queue.Queue, policy, cfg: cfg):
     """
     Run the Mujoco simulation using the provided policy and configuration.
 
@@ -145,6 +147,8 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiStayCfg):
     cl = np.array(clip, dtype=np.float32)
 
     command = [0, 0, 0]  # vx, vy, dyaw
+    phy_1 = 0
+    phy_2 = 0
     for _ in tqdm(
         range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)),
         desc="Simulating...",
@@ -188,8 +192,12 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiStayCfg):
                 axis_values = control_queue.get_nowait()
                 # Process the values
                 vx, vy, dyaw = [process_value(val) for val in axis_values]
-                command = [-vx * 0.4, -vy * 0.15, -dyaw * 0.6]
-                # print(f"Received control input: vx={vx}, vy={vy}, dyaw={dyaw}")
+                command = [
+                    -vx * cfg.commands.ranges.lin_vel_x[1],
+                    -vy * cfg.commands.ranges.lin_vel_y[1],
+                    -dyaw * cfg.commands.ranges.ang_vel_yaw[1],
+                ]
+                print(f"Received control input: vx={vx}, vy={vy}, dyaw={dyaw}")
             except queue.Empty:
                 pass
             obs[0, 6 + add] = torch.tensor(
@@ -201,58 +209,72 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiStayCfg):
             obs[0, 8 + add] = torch.tensor(
                 command[2] * cfg.normalization.obs_scales.ang_vel, dtype=torch.double
             )
-
             # standing_command_mask
             if command[0] != 0 or command[1] != 0 or command[2] != 0:
                 standing_command_mask = torch.tensor(0.0, dtype=torch.double)
+                psi = 0.5
             else:
                 # standing_command_mask = torch.tensor(0.0, dtype=torch.double)
                 standing_command_mask = torch.tensor(1.0, dtype=torch.double)
+                psi = 0
 
             obs[0, 9 + add] = standing_command_mask
-            # sin_pos
-            obs[0, 10 + add] = math.sin(
-                2
-                * math.pi
-                * count_lowlevel
-                * cfg.sim_config.dt
-                / cfg.rewards.cycle_time
-            )
-            # obs[0, 11 + add] = obs[0, 10 + add] *obs[0, 10 + add]
-            # obs[0, 12 + add] = math.sin(
-            # 4
-            # * math.pi
-            # * count_lowlevel
-            # * cfg.sim_config.dt
-            # / cfg.rewards.cycle_time
-            # )
-            # cos_pos
-            obs[0, 11 + add] = math.cos(
-                2
-                * math.pi
-                * count_lowlevel
-                * cfg.sim_config.dt
-                / cfg.rewards.cycle_time
-            )
-            # obs[0, 14 + add] = obs[0, 13 + add] * obs[0, 13 + add]
-            # obs[0, 15 + add] = math.cos(
-            #     2
-            #     * math.pi
-            #     * count_lowlevel
-            #     * cfg.sim_config.dt
-            #     / cfg.rewards.cycle_time
-            # )
+            
             # dof_pos
-            obs[0, 12 + add : 24 + add] = torch.tensor(
+            obs[0, 10 + add : 22 + add] = torch.tensor(
                 q * cfg.normalization.obs_scales.dof_pos, dtype=torch.double
             )  # 12
             # dof_vel
-            obs[0, 24 + add : 36 + add] = torch.tensor(
+            obs[0, 22 + add : 34 + add] = torch.tensor(
                 dq * cfg.normalization.obs_scales.dof_vel, dtype=torch.double
             )  # 12
             # actions
-            obs[0, 36 + add : 48 + add] = torch.tensor(action, dtype=torch.double)  # 12
-
+            obs[0, 34 + add : 46 + add] = torch.tensor(action, dtype=torch.double)  # 12
+            # f_t
+            obs[0, 46 + add] = 1.8
+            # l_t
+            obs[0, 47 + add] = 0.2
+            # h_t
+            # obs[0, 48 + add] = 0.
+            # psi
+            obs[0, 48 + add] = psi
+            
+            phy_1 += obs[0, 46 + add] * cfg.sim_config.dt * cfg.sim_config.decimation
+            if phy_1 >= 1.0:
+                phy_1 = 0.0
+            # print(phy_1)
+            phy_2 = phy_1 + obs[0, 48 + add]
+            if phy_2 >= 1.0:
+                phy_2 -= 1.0
+            # print(phy_1,phy_2)
+            if psi < 0.1:
+                phy_1 = 0.25
+                phy_2 = 0.25
+            # clock_1
+            obs[0, 49 + add] = math.sin(
+                    2
+                    * math.pi
+                    * phy_1
+                )
+            # print(obs[0, 49 + add])
+            # clock_2
+            obs[0, 50 + add] = math.sin(
+                    2
+                    * math.pi
+                    * phy_2
+                )
+            print(obs[0, 50 + add])
+            # print(type(q))
+            l = _pin.get_foot_pos(q)
+            print(l)
+            # feet_height_base_l
+            obs[0, 51 + add] = l[2+3] + 0.4294 * 0
+            # feet_height_base_r
+            obs[0, 52 + add] = l[2] + 0.4294 * 0
+            # feet_x_base_l
+            obs[0, 53 + add] = l[0+3] * 0 + 0.09
+            # feet_x_base_r
+            obs[0, 54 + add] = l[0]*0 + 0.09
             obs = torch.clip(
                 obs,
                 -cfg.normalization.clip_observations,
@@ -270,7 +292,7 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiStayCfg):
                 ] = hist_obs[i][0, :]
             # print(policy_input.shape)
             _action = policy(torch.tensor(policy_input))
-            # _action,mean_vel = policy(torch.tensor(policy_input))
+            # _action,mean_vel,mean_latent = policy(torch.tensor(policy_input))
             # print("action:\n",_action)
             action[:] = _action[0].detach().numpy()
             # obs_history长度为47*5 ，在给入网络之后再更新
@@ -312,7 +334,7 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiStayCfg):
 
 class GamepadHandler:
     def __init__(self):
-        pygame.init()
+        # pygame.init()
         pygame.joystick.init()
 
         self.joystick_count = pygame.joystick.get_count()
@@ -332,6 +354,8 @@ class GamepadHandler:
                     self.joysticks[0].get_axis(0),
                     self.joysticks[0].get_axis(3),
                 ]
+                while not command_queue.empty():
+                    command_queue.get_nowait()
                 command_queue.put(axis_values)
             elif event.type == pygame.QUIT:
                 return False
@@ -349,6 +373,73 @@ def gamepad_input(control_queue):
         time.sleep(0.00001)  # Adjust polling rate if necessary
     handler.quit()
 
+class KeyboardHandler:
+    def __init__(self):
+        # 如果你想和手柄共用同一个 pygame 实例，请注释掉或者放到外面
+        # 但要注意避免重复 init() 导致冲突。
+        ...
+    
+    def process_events(self, command_queue):
+        """
+        轮询键盘事件，并将转换后的 [vx, vy, dyaw] 放到 command_queue。
+        这里仅做示例，你可根据需要调整控制按键或速度方向。
+        """
+        # 获取所有事件
+        for event in pygame.event.get():
+            # 如果窗口关闭按钮被点击，或者其它事件，需要决定是否退出
+            if event.type == pygame.QUIT:
+                return False
+
+        # 同时也可以直接用 pygame.key.get_pressed() 来检查哪些键被按下
+        keys = pygame.key.get_pressed()
+
+        # 下面给一个简单的 WSAD + QE 控制逻辑
+        # 假设 vx, vy, dyaw 的取值范围在 [-1, 1] 之间
+        vx = 0.0
+        vy = 0.0
+        dyaw = 0.0
+        # W/S 控制前后
+        if keys[pygame.K_w]:
+            vx = -1.0
+        if keys[pygame.K_s]:
+            vx = 1.0
+
+        # A/D 控制左右 (此处假设 A 为左, D 为右)
+        if keys[pygame.K_a]:
+            vy = 1.0
+        if keys[pygame.K_d]:
+            vy = -1.0
+
+        # Q/E 控制 yaw
+        if keys[pygame.K_q]:
+            dyaw = -1.0
+        if keys[pygame.K_e]:
+            dyaw = 1.0
+
+        # 如果需要给这个轴赋某种灵敏度或者死区，可以在这里做
+        # 在放入队列之前，可以清空一下队列，确保只有最新命令
+        # if abs(vx) > 1e-3 or abs(vy) > 1e-3 or abs(dyaw) > 1e-3:
+        while not command_queue.empty():
+            command_queue.get_nowait()
+        command_queue.put([vx, vy, dyaw])
+
+        return True
+
+    def quit(self):
+        pygame.quit()
+
+
+def keyboard_input(control_queue):
+    """
+    该函数在单独的线程中运行，持续调用 KeyboardHandler 处理键盘事件。
+    """
+    handler = KeyboardHandler()
+    running = True
+    while running:
+        running = handler.process_events(control_queue)
+        time.sleep(0.01)  # 根据自己需要调整采样频率
+    handler.quit()
+
 
 if __name__ == "__main__":
     import argparse
@@ -358,21 +449,17 @@ if __name__ == "__main__":
         "--logdir",
         type=str,
         required=False,
-        default=f"{LEGGED_GYM_ROOT_DIR}/logs/pai_stay/exported/policies",
+        default=f"{LEGGED_GYM_ROOT_DIR}/logs/hicl_hug_ActorCriticLSTM/exported/policies",
         help="Run to load from.",
     )
     parser.add_argument("--terrain", action="store_true", help="terrain or plane")
     args = parser.parse_args()
 
-    class Sim2simCfg(PaiStayCfg):
+    class Sim2simCfg(cfg):
         class sim_config:
-            # mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v2_fixedbase.xml"  # 平地
-            mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v2.xml"  # 平地
-            # mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v1_hfield_l1.xml' #hfield
-            # mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v1_hfield.xml' #hfield
-
-            # mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v1_slope.xml' #hfield
-
+            # mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_cl_23_240925/mjcf/hi_12dof_release_v2.xml"  # 平地
+            mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_cl_23_240925/mjcf/hi_12dof_release_v2.xml"  # 平地
+            
             sim_duration = 60.0
             dt = 0.001
             decimation = 10
@@ -380,34 +467,37 @@ if __name__ == "__main__":
         class robot_config:
             kps_l = []
             kds_l = []
-            for joint, vals in PaiStayCfg.control.stiffness.items():
+            for joint, vals in cfg.control.stiffness.items():
                 print(f"joint: {joint} vals: {vals}")
                 kps_l.append(vals)
 
-            for joint, vals in PaiStayCfg.control.damping.items():
+            for joint, vals in cfg.control.damping.items():
                 print(f"joint: {joint} vals: {vals}")
                 kds_l.append(vals)
             kps = np.array(kps_l * (2), dtype=np.float32)
             kds = np.array(kds_l * (2), dtype=np.float32)
-            print("kps: ", kps)
-            print("kds: ", kds)
+            # print("kps: ", kps)
+            # print("kds: ", kds)
             # kps = np.array(
-            #     [40, 30, 10, 40, 20, 10, 20, 10, 10, 20, 20, 10], dtype=np.double
+            #     [80,40,40,80,50,10]*(2),
+            #     dtype=np.double
             # )  # v7
 
             # kds = np.array(
-            #     [2, 1.6, 1, 2, 2, 1, 2, 1.6, 1, 2, 2, 1],
+            #     [5,5,1,5,0.4,0.4]*(2),
             #     dtype=np.double,
             # )
+            print("kps: ", kps)
+            print("kds: ", kds)
+            tau_limit = 40.0 * np.ones(12, dtype=np.double)
 
-            tau_limit = 10.0 * np.ones(12, dtype=np.double)
-
-    a = args.logdir + "/combined_model_dwaq.pt"
+    a = args.logdir + "/lstm_1.pt"
     policy = torch.jit.load(a)
     # run_mujoco(policy, Sim2simCfg())
 
     control_queue = queue.Queue()
-
+    pygame.init()
+    screen = pygame.display.set_mode((100, 100))
     # Thread for MuJoCo simulation
     thread_a = threading.Thread(
         target=run_mujoco, args=(control_queue, policy, Sim2simCfg())
@@ -415,9 +505,17 @@ if __name__ == "__main__":
     thread_a.start()
 
     # Thread for gamepad input
-    thread_b = threading.Thread(target=gamepad_input, args=(control_queue,))
-    thread_b.start()
+    # thread_b = threading.Thread(target=gamepad_input, args=(control_queue,))
+    # thread_b.start()
+
+    thread_keyboard = threading.Thread(
+        target=keyboard_input, 
+        args=(control_queue,)
+    )
+    thread_keyboard.start()
+
 
     # Wait for threads to complete
     thread_a.join()
-    thread_b.join()
+    # thread_b.join()
+    thread_keyboard.join()

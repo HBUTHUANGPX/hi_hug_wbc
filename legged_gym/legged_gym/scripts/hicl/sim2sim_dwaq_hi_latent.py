@@ -38,7 +38,9 @@ from scipy.spatial.transform import Rotation as R
 from legged_gym import LEGGED_GYM_ROOT_DIR
 
 # from legged_gym.envs.pai.pai_config import PaiRoughCfg
-from legged_gym.envs.pai.pai_config_demo import PaiDemoRoughCfg
+from legged_gym.envs.hi_none_phase.hi_config_none_phase import HiNonePhaseCfg as cfg
+
+# from legged_gym.envs.pai.pai_config_demo import PaiDemoRoughCfg
 from isaacgym.torch_utils import *
 
 import torch
@@ -60,8 +62,8 @@ class cmd:
 class env:
     obs = 48
     num_single_obs = obs
-    frame_stack = 16
-    obs_his = obs * 15
+    frame_stack = cfg.env.num_obs_hist + 1
+    obs_his = obs * cfg.env.num_obs_hist
 
 
 def quat_rotate_inverse(q, v):
@@ -111,7 +113,7 @@ def process_value(value, threshold=0.01):
     return 0 if abs(value) < threshold else value
 
 
-def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiDemoRoughCfg):
+def run_mujoco(control_queue: queue.Queue, policy, cfg: cfg):
     """
     Run the Mujoco simulation using the provided policy and configuration.
 
@@ -188,8 +190,12 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiDemoRoughCfg):
                 axis_values = control_queue.get_nowait()
                 # Process the values
                 vx, vy, dyaw = [process_value(val) for val in axis_values]
-                command = [-vx * 0.4, -vy * 0.15, -dyaw * 0.6]
-                # print(f"Received control input: vx={vx}, vy={vy}, dyaw={dyaw}")
+                command = [
+                    -vx * cfg.commands.ranges.lin_vel_x[1],
+                    -vy * cfg.commands.ranges.lin_vel_y[1],
+                    -dyaw * cfg.commands.ranges.ang_vel_yaw[1],
+                ]
+                print(f"Received control input: vx={vx}, vy={vy}, dyaw={dyaw}")
             except queue.Empty:
                 pass
             obs[0, 6 + add] = torch.tensor(
@@ -206,8 +212,8 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiDemoRoughCfg):
             if command[0] != 0 or command[1] != 0 or command[2] != 0:
                 standing_command_mask = torch.tensor(0.0, dtype=torch.double)
             else:
-                # standing_command_mask = torch.tensor(0.0, dtype=torch.double)
-                standing_command_mask = torch.tensor(1.0, dtype=torch.double)
+                standing_command_mask = torch.tensor(0.0, dtype=torch.double)
+                # standing_command_mask = torch.tensor(1.0, dtype=torch.double)
 
             obs[0, 9 + add] = standing_command_mask
             # sin_pos
@@ -218,14 +224,6 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiDemoRoughCfg):
                 * cfg.sim_config.dt
                 / cfg.rewards.cycle_time
             )
-            # obs[0, 11 + add] = obs[0, 10 + add] *obs[0, 10 + add]
-            # obs[0, 12 + add] = math.sin(
-            # 4
-            # * math.pi
-            # * count_lowlevel
-            # * cfg.sim_config.dt
-            # / cfg.rewards.cycle_time
-            # )
             # cos_pos
             obs[0, 11 + add] = math.cos(
                 2
@@ -234,14 +232,6 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiDemoRoughCfg):
                 * cfg.sim_config.dt
                 / cfg.rewards.cycle_time
             )
-            # obs[0, 14 + add] = obs[0, 13 + add] * obs[0, 13 + add]
-            # obs[0, 15 + add] = math.cos(
-            #     2
-            #     * math.pi
-            #     * count_lowlevel
-            #     * cfg.sim_config.dt
-            #     / cfg.rewards.cycle_time
-            # )
             # dof_pos
             obs[0, 12 + add : 24 + add] = torch.tensor(
                 q * cfg.normalization.obs_scales.dof_pos, dtype=torch.double
@@ -269,9 +259,9 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: PaiDemoRoughCfg):
                     0, i * env.num_single_obs : (i + 1) * env.num_single_obs
                 ] = hist_obs[i][0, :]
             # print(policy_input.shape)
-            _action = policy(torch.tensor(policy_input))
-            # _action,mean_vel = policy(torch.tensor(policy_input))
-            # print("action:\n",_action)
+            # _action = policy(torch.tensor(policy_input))
+            _action,mean_vel,mean_latent = policy(torch.tensor(policy_input))
+            # print("latent:\n",mean_latent[0].detach().numpy())
             action[:] = _action[0].detach().numpy()
             # obs_history长度为47*5 ，在给入网络之后再更新
             # action[:] = load_policy(logdir,obs,obs_history)[0].detach().numpy()
@@ -332,6 +322,8 @@ class GamepadHandler:
                     self.joysticks[0].get_axis(0),
                     self.joysticks[0].get_axis(3),
                 ]
+                while not command_queue.empty():
+                    command_queue.get_nowait()
                 command_queue.put(axis_values)
             elif event.type == pygame.QUIT:
                 return False
@@ -358,20 +350,16 @@ if __name__ == "__main__":
         "--logdir",
         type=str,
         required=False,
-        default=f"{LEGGED_GYM_ROOT_DIR}/logs/pai_none_phase/exported/policies",
+        default=f"{LEGGED_GYM_ROOT_DIR}/logs/hi_none_phase/exported/policies",
         help="Run to load from.",
     )
     parser.add_argument("--terrain", action="store_true", help="terrain or plane")
     args = parser.parse_args()
 
-    class Sim2simCfg(PaiDemoRoughCfg):
+    class Sim2simCfg(cfg):
         class sim_config:
-            # mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v2_fixedbase.xml"  # 平地
-            mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v2.xml"  # 平地
-            # mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v1_hfield_l1.xml' #hfield
-            # mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v1_hfield.xml' #hfield
-
-            # mujoco_model_path = f'{LEGGED_GYM_ROOT_DIR}/resources/robots/pi_12dof_release_v1/mjcf/pi_12dof_release_v1_slope.xml' #hfield
+            # mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_cl_23_240925/mjcf/hi_12dof_release_v2.xml"  # 平地
+            mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_12dof_250108_4/mjcf/hi_12dof_release_v1.xml"  # 平地
 
             sim_duration = 60.0
             dt = 0.001
@@ -380,27 +368,29 @@ if __name__ == "__main__":
         class robot_config:
             kps_l = []
             kds_l = []
-            for joint, vals in PaiDemoRoughCfg.control.stiffness.items():
+            for joint, vals in cfg.control.stiffness.items():
                 print(f"joint: {joint} vals: {vals}")
                 kps_l.append(vals)
 
-            for joint, vals in PaiDemoRoughCfg.control.damping.items():
+            for joint, vals in cfg.control.damping.items():
                 print(f"joint: {joint} vals: {vals}")
                 kds_l.append(vals)
             kps = np.array(kps_l * (2), dtype=np.float32)
             kds = np.array(kds_l * (2), dtype=np.float32)
-            print("kps: ", kps)
-            print("kds: ", kds)
+            # print("kps: ", kps)
+            # print("kds: ", kds)
             # kps = np.array(
-            #     [40, 30, 10, 40, 20, 10, 20, 10, 10, 20, 20, 10], dtype=np.double
+            #     [80,40,40,80,50,10]*(2),
+            #     dtype=np.double
             # )  # v7
 
             # kds = np.array(
-            #     [2, 1.6, 1, 2, 2, 1, 2, 1.6, 1, 2, 2, 1],
+            #     [5,5,1,5,0.4,0.4]*(2),
             #     dtype=np.double,
             # )
-
-            tau_limit = 10.0 * np.ones(12, dtype=np.double)
+            print("kps: ", kps)
+            print("kds: ", kds)
+            tau_limit = 40.0 * np.ones(12, dtype=np.double)
 
     a = args.logdir + "/combined_model_dwaq.pt"
     policy = torch.jit.load(a)
