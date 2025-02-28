@@ -33,10 +33,8 @@ import os
 
 import isaacgym
 from legged_gym.envs import *
-from legged_gym.utils import get_args, export_policy_as_jit, task_registry, Logger
+from legged_gym.utils import get_args, export_policy_as_jit,export_policy_as_onnx, task_registry, Logger
 from legged_gym.utils.helpers import (
-    export_policy_as_jit_actor,
-    export_policy_as_jit_encoder,
     class_to_dict,
     export_lstm_model,
 )
@@ -87,8 +85,13 @@ def play(args):  # dwaq
         print("Exported policy as jit script to: ", path)
         print("policy ", policy)
         # export_policy_as_jit(ppo_runner.alg.actor_critic,path)
-        export_lstm_model(ppo_runner.alg.actor_critic,path,env_cfg.env.num_observations,0)
-
+        # export_lstm_model(ppo_runner.alg.actor_critic,path,env_cfg.env.num_observations,0)
+        export_policy_as_jit(
+            ppo_runner.alg.actor_critic, normalizer=None, path=path, filename="policy.pt"
+        )
+        export_policy_as_onnx(
+            ppo_runner.alg.actor_critic, normalizer=None, path=path, filename="policy.onnx"
+        )
     logger = Logger(env.dt)
     robot_index = 0  # which robot is used for logging
     joint_index = 1  # which joint is used for logging

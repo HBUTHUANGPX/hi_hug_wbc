@@ -154,7 +154,7 @@ class HiclHugCfg(LeggedRobotCfg):
 
         class noise_scales(LeggedRobotCfg.noise.noise_scales):
             dof_pos = 0.05
-            dof_vel = 0.5 * 2
+            dof_vel = 1.0
             ang_vel = 0.1
             lin_vel = 0.05
             quat = 0.03
@@ -182,8 +182,8 @@ class HiclHugCfg(LeggedRobotCfg):
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = True
-        friction_range = [0.99, 1.0]
-        # friction_range = [0.1, 0.45]
+        # friction_range = [0.99, 1.0]
+        friction_range = [0.1, 0.45]
 
         randomize_base_mass = False
         added_mass_range = [-1.5, 1.5]
@@ -224,14 +224,14 @@ class HiclHugCfg(LeggedRobotCfg):
         max_disturbance_range = [-440.0, 440.0]
 
         class ranges:
-            lin_vel_x = [-1.8, 1.8]  # min max [m/s]
+            lin_vel_x = [-0.8, 0.8]  # min max [m/s]
             lin_vel_y = [-0.5, 0.5]  # min max [m/s]
             ang_vel_yaw = [-0.9, 0.9]  # min max [rad/s]
             heading = [-3.14, 3.14]
             disturbance_range = [-320.0, 320.0]
             
-            gait_frequency = [1.8,1.81]
-            swing_height = [0.03,0.031]
+            gait_frequency = [1.5,2.9]
+            swing_height = [0.03,0.071]
             base_height = [-0.0,0]
 
     class rewards:
@@ -265,7 +265,7 @@ class HiclHugCfg(LeggedRobotCfg):
             
             # ====vel track======
             lin_vel_track = 10 # 2 10
-            ang_vel_track = 2
+            ang_vel_track = 10
             
             # ====body pose track=====
             body_height_track = 10
@@ -273,14 +273,14 @@ class HiclHugCfg(LeggedRobotCfg):
             
             # ====foot pose track=====
             foot_swing_track = 40 # 2 5
-            feet_contact = 5
+            feet_contact = 10
             feet_airtime = 2
             # contact_swing_track = -1
-            # style_similar = 80
+            # style_similar = 1
             knee_distance = 0.16
-            feet_distance = 0.16
-            feet_distance_2 = 0.16
-            feet_distance_x = 1
+            feet_distance = 1
+            feet_distance_2 = 1
+            feet_distance_x = 0.2
             ankle_roll_posture_roll = 0.5
             ankle_roll_posture_pitch = 1.5 *10
             # ====slow=====
@@ -348,9 +348,9 @@ class HiclHugCfgPPO(LeggedRobotCfgPPO):
     class runner(LeggedRobotCfgPPO.runner):
         run_name = "hicl_Hug_WBC"
 
-        policy_class_name = "ActorCriticLSTM"
+        # policy_class_name = "ActorCriticLSTM"
         # policy_class_name = 'ActorCritic'
-        # policy_class_name = 'ActorCriticRecurrent'
+        policy_class_name = 'ActorCriticRecurrent'
 
         experiment_name = "hicl_hug_" + policy_class_name
         # load and resume

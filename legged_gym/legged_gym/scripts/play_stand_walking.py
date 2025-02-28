@@ -35,8 +35,6 @@ import isaacgym
 from legged_gym.envs import *
 from legged_gym.utils import get_args, export_policy_as_jit, task_registry, Logger
 from legged_gym.utils.helpers import (
-    export_policy_as_jit_actor,
-    export_policy_as_jit_encoder,
     class_to_dict,
     export_lstm_model,
 )
@@ -54,7 +52,7 @@ import time
 from multiprocessing import Process, Value
 
 data_queue = queue.Queue()
-plot_num = 4
+plot_num = 5
 
 
 def plot_data(data_queue):
@@ -102,7 +100,7 @@ def play(args):  # dwaq
     env_cfg.domain_rand.push_robots = False
     env_cfg.domain_rand.push_robots = True
     # env_cfg.asset.fix_base_link = False#True
-    # env_cfg.asset.fix_base_link = True
+    env_cfg.asset.fix_base_link = True
     env_cfg.init_state.pos = [0.0, 0.0, 0.648]
     env_cfg.sim.physx.num_threads = 12
     # env_cfg.control.stiffness ={
@@ -164,15 +162,15 @@ def play(args):  # dwaq
         # actions[:,10:11] -= 4*lt
         obs, _, _, obs_hist, rews, dones, infos = env.step(actions.detach())
 
-        # fh,lt,err,cdf,nmerr,rew=env._reward_foot_swing_track(play=True)
-        # merged_tensor = torch.cat([
-        #     fh,
-        #     lt,
-        #     err.unsqueeze(1),
-        #     nmerr.unsqueeze(1),
-        #     rew.unsqueeze(1),
-        #     ], dim=1)[0,:]
-        # plot_num = 5
+        fh,lt,err,cdf,nmerr,rew=env._reward_foot_swing_track(play=True)
+        merged_tensor = torch.cat([
+            fh,
+            lt,
+            err.unsqueeze(1),
+            nmerr.unsqueeze(1),
+            rew.unsqueeze(1),
+            ], dim=1)[0,:]
+        plot_num = 5
 
         # scm,cnt,cf,fat,atr,r = env._reward_feet_airtime(play=True)
         # merged_tensor = torch.cat([
@@ -183,9 +181,10 @@ def play(args):  # dwaq
         #     atr.unsqueeze(1),
         #     r.unsqueeze(1)
         #     ], dim=1)[0,:]
-        merged_tensor = torch.cat([obs[:, 46:47], obs[:, 48:49], obs[:, 49:50],env.phy_1_bar], dim=1)[
-            0, :
-        ]
+        
+        # merged_tensor = torch.cat([obs[:, 46:47], obs[:, 48:49], obs[:, 49:50],env.phy_1_bar], dim=1)[
+        #     0, :
+        # ]
         data_queue.put(merged_tensor)
 
 

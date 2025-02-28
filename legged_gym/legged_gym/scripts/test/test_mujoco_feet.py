@@ -91,11 +91,11 @@ class pin_mj:
         self.foot_fl_pose_world:np.ndarray = self.data.oMf[self.l_ankle_roll_link_id].translation
         self.foot_fr_pose_world:np.ndarray = self.data.oMf[self.r_ankle_roll_link_id].translation
         # print("foot_fl in base frame => translation: \n  ", type(foot_fl_pose_world))
-        print("foot_fl in base frame => translation: \n  ", self.foot_fl_pose_world)
-        print("foot_fr in base frame => translation: \n  ", self.foot_fr_pose_world)
+        # print("foot_fl in base frame => translation: \n  ", self.foot_fl_pose_world)
+        # print("foot_fr in base frame => translation: \n  ", self.foot_fr_pose_world)
         # foot_concat_1d = np.concatenate((self.foot_fr_pose_world, self.foot_fl_pose_world), axis=0)
         foot_concat_1d = np.concatenate((self.foot_fl_pose_world, self.foot_fr_pose_world), axis=0)
-        print("foot_concat_1d in base frame => translation: \n  ", foot_concat_1d)
+        # print("foot_concat_1d in base frame => translation: \n  ", foot_concat_1d)
 
         return foot_concat_1d
         

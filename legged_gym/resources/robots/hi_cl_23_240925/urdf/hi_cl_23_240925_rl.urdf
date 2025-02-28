@@ -658,6 +658,7 @@ For more information, please see http://wiki.ros.org/sw_urdf_exporter
 			</geometry>
 		</collision>
 	</link>
+	
 	<joint name="l_calf_joint" type="revolute">
 		<origin xyz="0 0 -0.10575" rpy="0 1.1 0" />
 		<parent link="l_thigh_link" />

@@ -18,5 +18,6 @@ setup(
                       'mujoco==2.3.6',
                       'mujoco-python-viewer',
                       'tqdm',
-                      'pygame']
+                      'pygame',
+                      'onnxruntime']
 )

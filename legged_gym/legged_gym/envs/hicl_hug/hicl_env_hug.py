@@ -352,8 +352,8 @@ class HiclHugEnv(LeggedRobot):
             self.base_quat, foot_pos_world[:, 1, :] - self.base_pos
         )
         # print(foot_pos_base_left[0,1])
-        self.feet_height_base_l = foot_pos_base_left[:,2:3] + 0.4294
-        self.feet_height_base_r = foot_pos_base_right[:,2:3] + 0.4294
+        self.feet_height_base_l = foot_pos_base_left[:,2:3] + 0.59950981
+        self.feet_height_base_r = foot_pos_base_right[:,2:3] + 0.59950981
         
         self.feet_x_base_l = foot_pos_base_left[:,0:1]
         self.feet_x_base_r = foot_pos_base_right[:,0:1]
@@ -1614,12 +1614,12 @@ class HiclHugEnv(LeggedRobot):
     # ========task reward=========
     def _reward_lin_vel_track(self):
         error = self.commands[:, :2] - self.base_lin_vel[:, :2]
-        _rew = torch.exp(-torch.norm(error, p=2, dim=1) / 0.2)
+        _rew = torch.exp(-torch.norm(error, p=2, dim=1) / 0.05)
         return _rew
 
     def _reward_ang_vel_track(self):
         error = self.commands[:, 2:3] - self.base_ang_vel[:, 2:3]
-        _rew = torch.exp(-torch.norm(error, p=2, dim=1) / 0.2)
+        _rew = torch.exp(-torch.norm(error, p=2, dim=1) / 0.05)
         return _rew
 
     # ========behavior reward=====
@@ -1642,10 +1642,10 @@ class HiclHugEnv(LeggedRobot):
         eep_2 = self._negsqrd_exp(torch.abs(err_2), 0.03)
         # _rew_1 = (1 - self.CDF_1).squeeze(1) * (eep_1)
         # _rew_2 = (1 - self.CDF_2).squeeze(1) * (eep_2)
-        _rew_1 = eep_1
-        _rew_1[lt1<0.005] = 0.3*torch.ones_like(_rew_1)[lt1<0.005]
-        _rew_2 = eep_2
-        _rew_2[lt2<0.005] = 0.3*torch.ones_like(_rew_2)[lt2<0.005]
+        _rew_1 = eep_1#*(1.2 - self.CDF_1).squeeze(1)
+        _rew_1[lt1<0.005] *= 0.3*torch.ones_like(_rew_1)[lt1<0.005]
+        _rew_2 = eep_2#*(1.2 - self.CDF_2).squeeze(1)
+        _rew_2[lt2<0.005] *= 0.3*torch.ones_like(_rew_2)[lt2<0.005]
         
         _rew = (_rew_1 + _rew_2) / 2
         if play:
