@@ -164,6 +164,7 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: cfg):
     joint_velocities_all_frames = []
     joint_acc_all_frames = []
     old_dq = [0] * 12
+    old_q = [0] * 12
     for _ in tqdm(
         range(int(cfg.sim_config.sim_duration / cfg.sim_config.dt)),
         desc="Simulating...",
@@ -355,13 +356,21 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: cfg):
         # print(tau)
         joint_angles = [q[0], q[1], q[2], q[3], q[4], q[5]]  # 替换为你实际更新的数据
         joint_velocities = [
-            dq[0],
-            dq[1],
-            dq[2],
-            dq[3],
-            dq[4],
-            dq[5],
+            ((dq[0]-q[0])/cfg.sim_config.dt)/dq[0],
+            ((dq[1]-q[1])/cfg.sim_config.dt)/dq[1],
+            ((dq[2]-q[2])/cfg.sim_config.dt)/dq[2],
+            ((dq[3]-q[3])/cfg.sim_config.dt)/dq[3],
+            ((dq[4]-q[4])/cfg.sim_config.dt)/dq[4],
+            ((dq[5]-q[5])/cfg.sim_config.dt)/dq[5],
         ]  # 替换为你实际更新的数据
+        # joint_velocities = [
+        #     (dq[0]-q[0])/cfg.sim_config.dt,
+        #     (dq[1]-q[1])/cfg.sim_config.dt,
+        #     (dq[2]-q[2])/cfg.sim_config.dt,
+        #     (dq[3]-q[3])/cfg.sim_config.dt,
+        #     (dq[4]-q[4])/cfg.sim_config.dt,
+        #     (dq[5]-q[5])/cfg.sim_config.dt,
+        # ]  # 替换为你实际更新的数据
         joint_acc = [
             (old_dq[0] - dq[0])/cfg.sim_config.dt,
             (old_dq[1] - dq[1])/cfg.sim_config.dt,

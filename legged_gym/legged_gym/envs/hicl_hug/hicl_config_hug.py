@@ -50,7 +50,7 @@ class HiclHugCfg(LeggedRobotCfg):
         episode_length_s = 11  # episode length in seconds
 
     class init_state(LeggedRobotCfg.init_state):
-        pos = [0.0, 0.0, 0.648]  # x,y,z [m]
+        pos = [0.0, 0.0, 0.6885]  # x,y,z [m]
         default_joint_angles = {  # = target angles [rad] when action = 0.0
             "r_hip_pitch_joint": 0.0,
             "r_hip_roll_joint": 0.0,
@@ -185,7 +185,7 @@ class HiclHugCfg(LeggedRobotCfg):
         # friction_range = [0.99, 1.0]
         friction_range = [0.1, 0.45]
 
-        randomize_base_mass = False
+        randomize_base_mass = True
         added_mass_range = [-1.5, 1.5]
 
         disturbance = False
@@ -193,7 +193,7 @@ class HiclHugCfg(LeggedRobotCfg):
         disturbance_range = [-200.0,200.0]
         disturbance_interval = 3
 
-        push_robots = False
+        push_robots = True
         push_interval_s = 3  # 每次推的间隔时间
         max_push_vel_xy = 0.1
         # max_push_ang_vel = 0.2
@@ -231,13 +231,13 @@ class HiclHugCfg(LeggedRobotCfg):
             disturbance_range = [-320.0, 320.0]
             
             gait_frequency = [1.5,2.9]
-            swing_height = [0.03,0.071]
+            swing_height = [0.03,0.031]
             base_height = [-0.0,0]
 
     class rewards:
         soft_dof_pos_limit = 0.98
 
-        base_height_target = 0.648
+        base_height_target = 0.6885
 
         min_dist_fe = 0.205 * 0.95
         max_dist_fe = 0.205 * 1.05
@@ -264,17 +264,17 @@ class HiclHugCfg(LeggedRobotCfg):
             termination = 1.0
             
             # ====vel track======
-            lin_vel_track = 10 # 2 10
-            ang_vel_track = 10
+            lin_vel_track = 4 # 2 10
+            ang_vel_track = 4
             
             # ====body pose track=====
-            body_height_track = 10
+            body_height_track = 4
             roll_pitch_orient = 10  
             
             # ====foot pose track=====
             foot_swing_track = 40 # 2 5
-            feet_contact = 10
-            feet_airtime = 2
+            feet_contact = 5
+            feet_airtime = 5
             # contact_swing_track = -1
             # style_similar = 1
             knee_distance = 0.16
@@ -282,7 +282,7 @@ class HiclHugCfg(LeggedRobotCfg):
             feet_distance_2 = 1
             feet_distance_x = 0.2
             ankle_roll_posture_roll = 0.5
-            ankle_roll_posture_pitch = 1.5 *10
+            ankle_roll_posture_pitch = 1.5
             # ====slow=====
             action_smoothness = -2e-3 # -2e-4
             torques = -1e-6

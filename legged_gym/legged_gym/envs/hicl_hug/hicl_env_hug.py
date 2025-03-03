@@ -352,8 +352,8 @@ class HiclHugEnv(LeggedRobot):
             self.base_quat, foot_pos_world[:, 1, :] - self.base_pos
         )
         # print(foot_pos_base_left[0,1])
-        self.feet_height_base_l = foot_pos_base_left[:,2:3] + 0.59950981
-        self.feet_height_base_r = foot_pos_base_right[:,2:3] + 0.59950981
+        self.feet_height_base_l = foot_pos_base_left[:,2:3] + 0.64015703
+        self.feet_height_base_r = foot_pos_base_right[:,2:3] + 0.64015703
         
         self.feet_x_base_l = foot_pos_base_left[:,0:1]
         self.feet_x_base_r = foot_pos_base_right[:,0:1]

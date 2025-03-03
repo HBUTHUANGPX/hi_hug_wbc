@@ -311,7 +311,7 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: cfg):
             # action[:] = _action[0].detach().numpy()
 
             inputs = {
-                policy.get_inputs()[0].name: 0*policy_input+1,
+                policy.get_inputs()[0].name: policy_input,
                 policy.get_inputs()[1].name: h_in,
                 policy.get_inputs()[2].name: c_in
             }
@@ -320,12 +320,12 @@ def run_mujoco(control_queue: queue.Queue, policy, cfg: cfg):
             h_in = h_out
             c_in = c_out
             action = _action[0,:]
-            print("action: ",_action)
-            print("h_out: ",h_out)
-            print("c_out: ",c_out)
-            cnnt+=1
-            if cnnt==2:
-                break
+            # print("action: ",_action)
+            # print("h_out: ",h_out)
+            # print("c_out: ",c_out)
+            # cnnt+=1
+            # if cnnt==2:
+            #     break
             # ort_inputs = {policy.get_inputs()[0].name: policy_input}
             # ort_outputs = policy.run(None, ort_inputs)
             # _action = ort_outputs[0]  # ONNX 输出已经是 numpy 数组
@@ -501,7 +501,7 @@ if __name__ == "__main__":
             # mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_cl_23_240925/mjcf/hi_12dof_release_v2.xml"  # 平地
             mujoco_model_path = f"{LEGGED_GYM_ROOT_DIR}/resources/robots/hi_cl_23_240925/mjcf/hi_12dof_release_v2.xml"  # 平地
 
-            sim_duration = 20.0
+            sim_duration = 60.0
             dt = 0.001
             decimation = 10
 
