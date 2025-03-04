@@ -39,7 +39,8 @@ class HiclHugCfg(LeggedRobotCfg):
             num_observations = 0
         else:
             num_observations = 55
-        num_obs_hist = 0
+        hist_stack_frame = 100
+        num_hist_obs = hist_stack_frame * num_observations
         num_actor_obs = num_observations
         num_privileged_obs = 303
         num_critic_obs = num_privileged_obs
@@ -264,7 +265,7 @@ class HiclHugCfg(LeggedRobotCfg):
             termination = 1.0
             
             # ====vel track======
-            lin_vel_track = 4*5 # 2 10
+            lin_vel_track = 4 # 2 10
             ang_vel_track = 4
             
             # ====body pose track=====
@@ -350,7 +351,7 @@ class HiclHugCfgPPO(LeggedRobotCfgPPO):
 
         # policy_class_name = "ActorCriticLSTM"
         # policy_class_name = 'ActorCritic'
-        policy_class_name = 'ActorCriticRecurrent'
+        policy_class_name = 'ActorCriticRecurrentPAE'
 
         experiment_name = "hicl_hug_" + policy_class_name
         # load and resume

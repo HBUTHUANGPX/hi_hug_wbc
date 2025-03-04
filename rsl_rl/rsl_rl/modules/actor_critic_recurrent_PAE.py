@@ -36,7 +36,7 @@ from torch.distributions import Normal
 from torch.nn.modules import rnn
 from .actor_critic import ActorCritic, get_activation
 from rsl_rl.utils import unpad_trajectories
-class ActorCriticRecurrent(ActorCritic):
+class ActorCriticRecurrentPAE(ActorCritic):
     is_recurrent = True
     def __init__(self,  num_actor_obs,#当前帧数据
                         num_critic_obs,
@@ -64,14 +64,14 @@ class ActorCriticRecurrent(ActorCritic):
 
         activation = get_activation(activation)
 
-        self.memory_a = Memory(num_actor_obs, type=rnn_type, num_layers=rnn_num_layers, hidden_size=rnn_hidden_size)
+        self.memory_a = Memory(num_actor_obs + 19, type=rnn_type, num_layers=rnn_num_layers, hidden_size=rnn_hidden_size)
         self.memory_c = Memory(num_critic_obs, type=rnn_type, num_layers=rnn_num_layers, hidden_size=rnn_hidden_size)
 
         self.encoder = nn.Sequential(
             nn.Linear(paenet_in_dim, 128),
-            self.activation,
+            activation,
             nn.Linear(128, 64),
-            self.activation,
+            activation,
         )
         self.encode_mean_latent = nn.Linear(64, paenet_out_dim - 3)
         self.encode_logvar_latent = nn.Linear(64, paenet_out_dim - 3)
@@ -79,13 +79,15 @@ class ActorCriticRecurrent(ActorCritic):
         self.encode_logvar_vel = nn.Linear(64, 3)
         self.decoder = nn.Sequential(
             nn.Linear(paenet_out_dim, 64),
-            self.activation,
+            activation,
             nn.Linear(64, 128),
-            self.activation,
+            activation,
             nn.Linear(128, num_actor_obs),  # (128,45)
         )
         print(f"Actor RNN: {self.memory_a}")
         print(f"Critic RNN: {self.memory_c}")
+        print(f"encoder: {self.encoder}")
+        print(f"decoder: {self.decoder}")
 
     def reset(self, dones=None):
         self.memory_a.reset(dones)
@@ -98,6 +100,7 @@ class ActorCriticRecurrent(ActorCritic):
         return code
     
     def cenet_forward(self, obs_history):
+        # print(obs_history.size())
         distribution = self.encoder(obs_history)
         mean_latent = self.encode_mean_latent(distribution)
         logvar_latent = self.encode_logvar_latent(distribution)

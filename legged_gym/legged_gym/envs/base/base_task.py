@@ -60,7 +60,7 @@ class BaseTask():
 
         self.num_envs = cfg.env.num_envs
         self.num_obs = cfg.env.num_observations
-        self.num_obs_hist = cfg.env.num_obs_hist
+        self.num_hist_obs = cfg.env.num_hist_obs
         self.num_privileged_obs = cfg.env.num_privileged_obs
         if cfg.control.control_type == "PG":
             self.num_actions_min = cfg.env.num_actions-12
@@ -75,7 +75,7 @@ class BaseTask():
 
         # allocate buffers
         self.obs_buf = torch.zeros(self.num_envs, self.num_obs, device=self.device, dtype=torch.float)
-        self.obs_hist_buf = torch.zeros(self.num_envs, self.num_obs_hist*self.num_obs, device = self.device, dtype=torch.float)
+        self.obs_hist_buf = torch.zeros(self.num_envs, self.num_hist_obs, device = self.device, dtype=torch.float)
         self.rew_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.float)
         self.reset_buf = torch.ones(self.num_envs, device=self.device, dtype=torch.long)
         self.episode_length_buf = torch.zeros(self.num_envs, device=self.device, dtype=torch.long)
@@ -122,7 +122,7 @@ class BaseTask():
         """ Reset all robots"""
         self.reset_idx(torch.arange(self.num_envs, device=self.device))
         obs, privileged_obs, _, _, _, _, _ = self.step(torch.zeros(self.num_envs, self.num_actions, device=self.device, requires_grad=False))
-        obs_hist = torch.zeros(self.num_envs, self.num_obs_hist*self.num_obs, device = self.device, dtype=torch.float)
+        obs_hist = torch.zeros(self.num_envs, self.num_hist_obs, device = self.device, dtype=torch.float)
         prev_privileged_obs = torch.zeros(self.num_envs, self.num_privileged_obs, device=self.device, dtype=torch.float)
         return obs, privileged_obs, prev_privileged_obs, obs_hist
 

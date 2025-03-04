@@ -37,6 +37,7 @@ from typing import Tuple, Union
 class VecEnv(ABC):
     num_envs: int
     num_obs: int
+    num_hist_obs: int
     num_privileged_obs: int
     num_actions: int
     max_episode_length: int

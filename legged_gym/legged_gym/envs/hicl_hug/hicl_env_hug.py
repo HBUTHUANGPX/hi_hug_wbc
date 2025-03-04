@@ -1453,14 +1453,14 @@ class HiclHugEnv(LeggedRobot):
 
         self.privileged_obs_buf = torch.cat(
             (
-                self.base_ang_vel * self.obs_scales.ang_vel,  # 3
-                self.projected_gravity,  # 3
-                self.commands[:, :3] * self.commands_scale,  # 3
+                self.base_ang_vel * self.obs_scales.ang_vel,  # 3 0:3
+                self.projected_gravity,  # 3 3:6
+                self.commands[:, :3] * self.commands_scale,  # 3 6:9
                 # self.command_height,
-                (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,  # 12
-                self.dof_vel * self.obs_scales.dof_vel,  # 12
-                self.actions,  # 12
-                self.base_lin_vel * self.obs_scales.lin_vel,  # 3
+                (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,  # 12 9:21
+                self.dof_vel * self.obs_scales.dof_vel,  # 12 21:33
+                self.actions,  # 12 33:45
+                self.base_lin_vel * self.obs_scales.lin_vel,  # 3 45:48
                 # self.root_acc_base_with_g, # 3
                 (self.contact_forces.view(self.num_envs, -1) - contact_forces_shift)
                 * contact_forces_scale,  # 13*3 = 39

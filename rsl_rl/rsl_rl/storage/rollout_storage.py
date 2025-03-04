@@ -39,6 +39,7 @@ class RolloutStorage:
         def __init__(self):
             self.observations = None
             self.critic_observations = None
+            self.observation_history = None
             self.actions = None
             self.rewards = None
             self.dones = None
@@ -57,6 +58,7 @@ class RolloutStorage:
         num_transitions_per_env,
         obs_shape,
         privileged_obs_shape,
+        obs_hist_shape,
         actions_shape,
         device="cpu",
     ):
@@ -71,6 +73,7 @@ class RolloutStorage:
         self.observations = torch.zeros(
             num_transitions_per_env, num_envs, *obs_shape, device=self.device
         )
+        self.observation_history = torch.zeros(num_transitions_per_env, num_envs, *obs_hist_shape, device=self.device)
         if privileged_obs_shape[0] is not None:
             self.privileged_observations = torch.zeros(
                 num_transitions_per_env,
@@ -123,6 +126,7 @@ class RolloutStorage:
         if self.step >= self.num_transitions_per_env:
             raise AssertionError("Rollout buffer overflow")
         self.observations[self.step].copy_(transition.observations)
+        self.observation_history[self.step].copy_(transition.observation_history)
         if self.privileged_observations is not None:
             self.privileged_observations[self.step].copy_(
                 transition.critic_observations
@@ -257,6 +261,9 @@ class RolloutStorage:
         padded_obs_trajectories, trajectory_masks = split_and_pad_trajectories(
             self.observations, self.dones
         )
+        padded_obs_hist_trajectories, trajectory_masks = split_and_pad_trajectories(
+            self.observation_history, self.dones
+        )
         # print("trajectory_masks.size():",trajectory_masks.size())
         if self.privileged_observations is not None:
             padded_critic_obs_trajectories, _ = split_and_pad_trajectories(
@@ -281,6 +288,7 @@ class RolloutStorage:
 
                 masks_batch = trajectory_masks[:, first_traj:last_traj]
                 obs_batch = padded_obs_trajectories[:, first_traj:last_traj]
+                obs_hist_batch = padded_obs_hist_trajectories[:, first_traj:last_traj]
                 critic_obs_batch = padded_critic_obs_trajectories[
                     :, first_traj:last_traj
                 ]
@@ -321,7 +329,7 @@ class RolloutStorage:
                 # b = masks_batch.squeeze(-1)
                 # b_size = b.size()
                 # print(a_size,b_size)
-                yield obs_batch, critic_obs_batch, actions_batch, values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (
+                yield obs_batch, critic_obs_batch, obs_hist_batch, actions_batch, values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (
                     hid_a_batch,
                     hid_c_batch,
                 ), masks_batch

@@ -30,5 +30,6 @@
 
 from .actor_critic import ActorCritic
 from .actor_critic_recurrent import ActorCriticRecurrent
+from .actor_critic_recurrent_PAE import ActorCriticRecurrentPAE
 from .actor_critic_lstm_2 import ActorCriticLSTM
 # from .actor_critic_lstm import ActorCriticLSTM

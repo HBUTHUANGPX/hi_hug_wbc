@@ -105,8 +105,8 @@ def play(args):  # dwaq
     img_idx = 0
 
     for i in range(10 * int(env.max_episode_length)):
-        actions = policy(obs.detach())
-        # actions = policy(obs.detach(), obs_hist.detach())
+        # actions = policy(obs.detach())
+        actions = policy(obs.detach(), obs_hist.detach())
         obs, _, _, obs_hist, rews, dones, infos = env.step(actions.detach())
         env._reward_boundary()
 

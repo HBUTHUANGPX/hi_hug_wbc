@@ -87,6 +87,7 @@ class PPO:
         num_transitions_per_env,
         actor_obs_shape,
         critic_obs_shape,
+        obs_hist_shape,
         action_shape,
     ):
         self.storage = RolloutStorage(
@@ -94,6 +95,7 @@ class PPO:
             num_transitions_per_env,
             actor_obs_shape,
             critic_obs_shape,
+            obs_hist_shape,
             action_shape,
             self.device,
         )
@@ -104,11 +106,11 @@ class PPO:
     def train_mode(self):
         self.actor_critic.train()
 
-    def act(self, obs, critic_obs):
+    def act(self, obs, critic_obs, obs_history):
         if self.actor_critic.is_recurrent:
             self.transition.hidden_states = self.actor_critic.get_hidden_states()
         # Compute the actions and values
-        self.transition.actions = self.actor_critic.act(obs).detach()
+        self.transition.actions = self.actor_critic.act(obs, obs_history).detach()
         self.transition.values = self.actor_critic.evaluate(critic_obs).detach()
         self.transition.actions_log_prob = self.actor_critic.get_actions_log_prob(
             self.transition.actions
@@ -117,6 +119,7 @@ class PPO:
         self.transition.action_sigma = self.actor_critic.action_std.detach()
         # need to record obs and critic_obs before env.step()
         self.transition.observations = obs
+        self.transition.observation_history = obs_history
         self.transition.critic_observations = critic_obs
         return self.transition.actions
 
@@ -140,9 +143,10 @@ class PPO:
         last_values = self.actor_critic.evaluate(last_critic_obs).detach()
         self.storage.compute_returns(last_values, self.gamma, self.lam)
 
-    def update(self):
+    def update(self, beta=1):
         mean_value_loss = 0
         mean_surrogate_loss = 0
+        mean_autoenc_loss = 0
         if self.actor_critic.is_recurrent:
             generator = self.storage.reccurent_mini_batch_generator(
                 self.num_mini_batches, self.num_learning_epochs
@@ -154,6 +158,7 @@ class PPO:
         for (
             obs_batch,
             critic_obs_batch,
+            obs_hist_batch,
             actions_batch,
             target_values_batch,
             advantages_batch,
@@ -166,7 +171,10 @@ class PPO:
         ) in generator:
 
             self.actor_critic.act(
-                obs_batch, masks=masks_batch, hidden_states=hid_states_batch[0]
+                obs_batch,
+                obs_hist_batch,
+                masks=masks_batch,
+                hidden_states=hid_states_batch[0],
             )
             actions_log_prob_batch = self.actor_critic.get_actions_log_prob(
                 actions_batch
@@ -200,7 +208,27 @@ class PPO:
 
                     for param_group in self.optimizer.param_groups:
                         param_group["lr"] = self.learning_rate
+            code, code_vel, decode, mean_vel, logvar_vel, mean_latent, logvar_latent = (
+                self.actor_critic.cenet_forward(obs_hist_batch)
+            )
+            # print("ppo critic_obs_batch size:",critic_obs_batch.size())
+            # print("ppo code_vel size:",code_vel.size())
+            vel_target = critic_obs_batch[:, :,45:48]
+            vel_target.requires_grad = False
 
+            decode_target = obs_batch
+            decode_target.requires_grad = False
+
+            vel_loss = nn.MSELoss()(code_vel, vel_target)/ self.num_mini_batches
+            obs_loss = nn.MSELoss()(decode, decode_target)/ self.num_mini_batches
+            beta_VAE_loss = beta * (
+                -0.5
+                * torch.sum(
+                    1 + logvar_latent - mean_latent.pow(2) - logvar_latent.exp()
+                )
+            )/ self.num_mini_batches
+            autoenc_loss = vel_loss + obs_loss+beta_VAE_loss
+            
             # Surrogate loss
             ratio = torch.exp(
                 actions_log_prob_batch - torch.squeeze(old_actions_log_prob_batch)
@@ -226,6 +254,7 @@ class PPO:
                 surrogate_loss
                 + self.value_loss_coef * value_loss
                 - self.entropy_coef * entropy_batch.mean()
+                + autoenc_loss
             )
 
             # Gradient step
@@ -236,10 +265,11 @@ class PPO:
 
             mean_value_loss += value_loss.item()
             mean_surrogate_loss += surrogate_loss.item()
+            mean_autoenc_loss += autoenc_loss.item()
 
         num_updates = self.num_learning_epochs * self.num_mini_batches
         mean_value_loss /= num_updates
         mean_surrogate_loss /= num_updates
         self.storage.clear()
 
-        return mean_value_loss, mean_surrogate_loss
+        return mean_value_loss, mean_surrogate_loss,mean_autoenc_loss
