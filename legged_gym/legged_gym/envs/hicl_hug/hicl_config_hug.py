@@ -264,7 +264,7 @@ class HiclHugCfg(LeggedRobotCfg):
             termination = 1.0
             
             # ====vel track======
-            lin_vel_track = 4 # 2 10
+            lin_vel_track = 4*5 # 2 10
             ang_vel_track = 4
             
             # ====body pose track=====
