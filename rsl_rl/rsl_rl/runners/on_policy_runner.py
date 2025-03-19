@@ -36,9 +36,10 @@ import statistics
 from torch.utils.tensorboard import SummaryWriter
 import torch
 
-from rsl_rl.algorithms import PPO
+from rsl_rl.algorithms import PPO, PPO_PAE
 from rsl_rl.modules import (
     ActorCritic,
+    ActorCriticPAE,
     ActorCriticRecurrent,
     ActorCriticLSTM,
     ActorCriticRecurrentPAE,
@@ -70,16 +71,24 @@ class OnPolicyRunner:
             num_critic_obs = self.env.num_privileged_obs
         else:
             num_critic_obs = self.env.num_obs
-        actor_critic_class: ActorCriticRecurrentPAE = eval(self.cfg["policy_class_name"])  # ActorCritic
+        actor_critic_class = eval(self.cfg["policy_class_name"])  # ActorCritic
         paenet_out_dim = 19
-        actor_critic: ActorCriticRecurrentPAE = actor_critic_class(
-            self.env.num_obs,
-            num_critic_obs,
-            self.env.num_actions,
-            self.env.num_hist_obs,
-            paenet_out_dim,
-            **self.policy_cfg,
-        ).to(self.device)
+        if self.cfg["policy_class_name"] == "ActorCritic":
+            actor_critic: ActorCritic = actor_critic_class(
+                self.env.num_obs,
+                num_critic_obs,
+                self.env.num_actions,
+                **self.policy_cfg,
+            ).to(self.device)
+        else:
+            actor_critic: ActorCriticPAE = actor_critic_class(
+                self.env.num_obs,
+                num_critic_obs,
+                self.env.num_actions,
+                self.env.num_hist_obs,
+                paenet_out_dim,
+                **self.policy_cfg,
+            ).to(self.device)
         alg_class = eval(self.cfg["algorithm_class_name"])  # PPO
         self.alg: PPO = alg_class(actor_critic, device=self.device, **self.alg_cfg)
         self.num_steps_per_env = self.cfg["num_steps_per_env"]
@@ -150,7 +159,7 @@ class OnPolicyRunner:
             # Rollout
             with torch.inference_mode():
                 for i in range(self.num_steps_per_env):
-                    actions = self.alg.act(obs, critic_obs,obs_hist)
+                    actions = self.alg.act(obs, critic_obs, obs_hist)
                     (
                         obs,
                         privileged_obs,
@@ -161,7 +170,7 @@ class OnPolicyRunner:
                         infos,
                     ) = self.env.step(actions)
                     critic_obs = privileged_obs if privileged_obs is not None else obs
-                    obs, critic_obs, obs_hist,rewards, dones = (
+                    obs, critic_obs, obs_hist, rewards, dones = (
                         obs.to(self.device),
                         critic_obs.to(self.device),
                         obs_hist.to(self.device),
@@ -193,7 +202,13 @@ class OnPolicyRunner:
                 start = stop
                 self.alg.compute_returns(critic_obs)
 
-            mean_value_loss, mean_surrogate_loss,mean_autoenc_loss = self.alg.update()
+            (
+                mean_value_loss,
+                mean_surrogate_loss,
+                mean_vel_loss,
+                mean_obs_loss,
+                mean_beta_VAE_loss,
+            ) = self.alg.update()
             stop = time.time()
             learn_time = stop - start
             if self.log_dir is not None:
@@ -239,6 +254,9 @@ class OnPolicyRunner:
             {
                 "Loss/value_function": locs["mean_value_loss"],
                 "Loss/surrogate": locs["mean_surrogate_loss"],
+                "Loss/vel": locs["mean_vel_loss"],
+                "Loss/obs": locs["mean_obs_loss"],
+                "Loss/beta_VAE": locs["mean_beta_VAE_loss"],
                 "Loss/learning_rate": self.alg.learning_rate,
                 "Policy/mean_noise_std": mean_std.item(),
                 "Perf/total_fps": fps,

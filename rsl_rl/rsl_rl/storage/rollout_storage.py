@@ -73,7 +73,9 @@ class RolloutStorage:
         self.observations = torch.zeros(
             num_transitions_per_env, num_envs, *obs_shape, device=self.device
         )
-        self.observation_history = torch.zeros(num_transitions_per_env, num_envs, *obs_hist_shape, device=self.device)
+        self.observation_history = torch.zeros(
+            num_transitions_per_env, num_envs, *obs_hist_shape, device=self.device
+        )
         if privileged_obs_shape[0] is not None:
             self.privileged_observations = torch.zeros(
                 num_transitions_per_env,
@@ -221,6 +223,7 @@ class RolloutStorage:
         )
 
         observations = self.observations.flatten(0, 1)
+        observation_history = self.observation_history.flatten(0, 1)
         if self.privileged_observations is not None:
             critic_observations = self.privileged_observations.flatten(0, 1)
         else:
@@ -242,6 +245,7 @@ class RolloutStorage:
                 batch_idx = indices[start:end]
 
                 obs_batch = observations[batch_idx]
+                obs_hist_batch = observation_history[batch_idx]
                 critic_observations_batch = critic_observations[batch_idx]
                 actions_batch = actions[batch_idx]
                 target_values_batch = values[batch_idx]
@@ -250,7 +254,7 @@ class RolloutStorage:
                 advantages_batch = advantages[batch_idx]
                 old_mu_batch = old_mu[batch_idx]
                 old_sigma_batch = old_sigma[batch_idx]
-                yield obs_batch, critic_observations_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (
+                yield obs_batch, critic_observations_batch, obs_hist_batch, actions_batch, target_values_batch, advantages_batch, returns_batch, old_actions_log_prob_batch, old_mu_batch, old_sigma_batch, (
                     None,
                     None,
                 ), None

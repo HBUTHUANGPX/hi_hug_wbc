@@ -2022,7 +2022,7 @@ class HiclHugEnv(LeggedRobot):
     # ===pos===================
     def _reward_joint_pos(self):
         diff = self.dof_pos - self.ref_dof_pos
-        _scale_l = [0., 1, 1, 0.0, 0.0, 1] * (2)
+        _scale_l = [0.1, 1, 1, 0.1, 0.1, 1] * (2)
         _scale = torch.tensor(
             _scale_l, dtype=torch.float, device=self.device, requires_grad=False
         )

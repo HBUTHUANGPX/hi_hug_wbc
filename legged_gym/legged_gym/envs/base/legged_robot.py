@@ -235,6 +235,8 @@ class LeggedRobot(BaseTask):
         self.feet_air_time[env_ids] = 0.0
         self.episode_length_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
+        self.obs_hist_buf[env_ids,:] *= 0#torch.zeros(self.num_envs, self.num_hist_obs, device = self.device, dtype=torch.float)
+        
         # fill extras
         self.extras["episode"] = {}
         for key in self.episode_sums.keys():

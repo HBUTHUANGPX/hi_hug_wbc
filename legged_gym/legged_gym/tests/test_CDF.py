@@ -12,8 +12,7 @@ def C(phi_t_i, sigma):
     term1 = normal_dist.cdf(phi_t_i / sigma) * (1 - normal_dist.cdf((phi_t_i - 0.5) / sigma))
     term2 = normal_dist.cdf((phi_t_i - 1) / sigma) * (1 - normal_dist.cdf((phi_t_i - 1.5) / sigma))
     
-    return term1 + term2
-
+    return term1*0 + term2
 # Generate values for phi_t_i and choose sigma
 phi_t_i_values = torch.linspace(0, 1, 1000)  # range of phi_t_i
 sigma = .05  # Example standard deviation value

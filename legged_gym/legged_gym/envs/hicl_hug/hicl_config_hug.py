@@ -348,10 +348,13 @@ class HiclHugCfgPPO(LeggedRobotCfgPPO):
 
     class runner(LeggedRobotCfgPPO.runner):
         run_name = "hicl_Hug_WBC"
+        # algorithm_class_name = 'PPO'
+        algorithm_class_name = 'PPO_PAE'
 
         # policy_class_name = "ActorCriticLSTM"
         # policy_class_name = 'ActorCritic'
-        policy_class_name = 'ActorCriticRecurrentPAE'
+        policy_class_name = 'ActorCriticPAE'
+        # policy_class_name = 'ActorCriticRecurrentPAE'
 
         experiment_name = "hicl_hug_" + policy_class_name
         # load and resume
